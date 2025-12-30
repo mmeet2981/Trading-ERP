@@ -1,5 +1,5 @@
 const db = require("../../../config/db");
-const { UnknownError } = require("eva-utilities").errors;
+const { UnknownError } = require("../../../utils/errors");
 
 
 const makeUserDb = require("./user-db");

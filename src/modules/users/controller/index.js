@@ -4,7 +4,7 @@ const { createUser } = require("../usecase");
 const {
   createErrorResponse,
   createSuccessResponse,
-} = require("eva-utilities").utilities;
+} = require("../../../utils/response")
 
 const createUserAction = makeCreateUserAction({
   createErrorResponse,

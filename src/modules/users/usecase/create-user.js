@@ -1,97 +1,89 @@
+
+'use strict';
+
 module.exports = function ({
-    userDb,
-    hash,
-    joi,
-    createUserWisePermissionCall,
-    config,
-    UnknownError,
+   userDb,
+   Joi,
+   bcrypt,
+   UnknownError
   }) {
-    return async function createUser({ userData, createdBy, logger }) {
-      const schema = joi.object({
-        password: joi.string().min(4).max(30).required(),
-        fullname: joi.string().max(50).required(),
-        email: joi.string().email().max(40).required(),
-        phone_number: joi.string().max(20).optional().allow(""),
-        is_employee: joi.boolean().required(),
-        employee_id: joi.string().allow(null).required(),
-        designation: joi.string().allow("", null).required(),
-        supervisor_emp_id: joi.string().optional().allow(""),
-        unit: joi.string().max(2).required(),
-        company_id: joi.number().required(),
-        associated_with: joi.array().items(joi.number()).default([]),
-        roles: joi.array().items(joi.string()).default([]),
-        expires_at: joi.date(),
-      });
-  
-      await schema.validateAsync(userData);
-  
-      const existingUser =
-        await userDb.findUserByEmailAndEmployeeType({
-          email: userData.email,
-          employee_type: "ERP",
-        });
-  
-      if (existingUser) {
-        throw new UnknownError(
-          "User with this email and employee type already exists"
-        );
-      }
-  
-      const createHash = hash();
-      const hashedPassword = await createHash({
-        data: userData.password,
-        secret: config.secrets.registerUser,
-      });
-  
-      const createdUser = await userDb.createUserEntry({
-        userData: {
-          password: hashedPassword,
-          fullname: userData.fullname,
-          email: userData.email,
-          created_by: createdBy,
-          phone_number: userData.phone_number || null,
-          is_active: true,
-          is_employee: userData.is_employee,
-          employee_type: "ERP",
-          employee_id: userData.employee_id,
-          designation: userData.designation,
-          supervisor_emp_id: userData.supervisor_emp_id || null,
-          unit: userData.unit,
-          company_id: userData.company_id,
-          meta_data: {
-            associated_with: userData.associated_with,
-          },
-          role: userData.roles?.[0] || "",
-          expires_at: userData.expires_at,
-        },
-        logger,
-      });
-  
-      if (userData.associated_with.length > 0) {
-        const permissionsObject = {};
-  
-        userData.associated_with.forEach((locationId) => {
-          permissionsObject[`unit_${locationId}`] = { read: true };
-        });
-  
-        await createUserWisePermissionCall({
-          logger,
-          userId: createdUser.id,
-          mainModuleName: "UNIT",
-          permission: permissionsObject,
-        });
-      }
-  
-      return {
-        success: true,
-        message: "User created successfully",
-        user: {
-          id: createdUser.id,
-          fullname: createdUser.fullname,
-          email: createdUser.email,
-          employee_id: createdUser.employee_id,
-        },
-      };
+  return async function createUser({ userData, createdBy, logger }) {
+    // Validation schema - adjust required/optional fields as per your business rules
+    const schema = Joi.object({
+      username: Joi.string().alphanum().min(3).max(50).required(),
+      password: Joi.string().min(6).max(100).required(),
+      email: Joi.string().email().max(100).required(),
+      employee_code: Joi.string().max(30).required(),
+      first_name: Joi.string().max(50).required(),
+      middle_name: Joi.string().max(50).allow("").optional(),
+      last_name: Joi.string().max(50).required(),
+      gender: Joi.string().valid("male", "female", "other").optional(),
+      date_of_birth: Joi.date().iso().optional(),
+      mobile_number: Joi.string().pattern(/^[0-9]{10,15}$/).required(),
+      department_id: Joi.number().integer().optional().allow(null),
+      designation_id: Joi.number().integer().optional().allow(null),
+      employment_type: Joi.string()
+        .valid("full_time", "part_time", "contract", "intern")
+        .default("full_time"),
+      date_of_joining: Joi.date().iso().required(),
+      reporting_manager_id: Joi.number().integer().optional().allow(null),
+      user_role: Joi.string()
+        .valid("manager", "sales", "account", "worker", "admin_manager")
+        .required(),
+      // Add more optional fields if needed
+    });
+
+    const { error, value } = schema.validate(userData);
+    if (error) {
+      throw new UnknownError(error.details[0].message);
+    }
+
+    // Check uniqueness
+    const existing = await userDb.findByEmailOrUsernameOrCode({
+      email: value.email,
+      username: value.username,
+      employee_code: value.employee_code,
+      logger,
+    });
+
+    if (existing) {
+      const field = existing.email === value.email ? "email" :
+                   existing.username === value.username ? "username" : "employee_code";
+      throw new UnknownError(`User with this ${field} already exists`);
+    }
+
+    // Hash password
+    const saltRounds = 10;
+    const hashedPassword = await bcrypt.hash(value.password, saltRounds);
+
+    // Create user
+    const createdUser = await userDb.createUser({
+      userData: {
+        ...value,
+        password: hashedPassword,
+        created_by: createdBy,
+        updated_by: createdBy,
+        employment_status: "active",
+        country: "India",
+      },
+      logger,
+    });
+
+    return {
+      success: true,
+      message: "User created successfully",
+      user: {
+        user_id: createdUser.user_id,
+        username: createdUser.username,
+        email: createdUser.email,
+        employee_code: createdUser.employee_code,
+        full_name: createdUser.full_name,
+        user_role: createdUser.user_role,
+        department_id: createdUser.department_id,
+        designation_id: createdUser.designation_id,
+        employment_status: createdUser.employment_status,
+        date_of_joining: createdUser.date_of_joining,
+      },
     };
   };
-  
+};

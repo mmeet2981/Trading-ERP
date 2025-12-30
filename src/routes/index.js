@@ -1,13 +1,9 @@
-const { Router } = require("express");
+const express = require('express');
+const router = express.Router();
+const userRoutes = require("./user-routes");
 
-const userRoutes = require("./users");
-const inquiryRoutes = require("./inquiry");
-const customerRoutes = require("./customer");
 
-const router = Router({ mergeParams: true });
+router.use('/v1/user-service',userRoutes)
 
-router.use(userRoutes);
-router.use(inquiryRoutes);
-router.use(customerRoutes);
 
 module.exports = router;

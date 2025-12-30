@@ -1,3 +1,5 @@
+// index.js or server.js
+
 require("dotenv").config();
 const app = require("./app");
 const pool = require("./config/db");
@@ -9,8 +11,16 @@ async function start() {
     await pool.query("SELECT 1");
     console.log("PostgreSQL connected");
 
-    app.listen(PORT, () => {
-      console.log(`Server running on port ${PORT}`);
+    const server = app.listen(PORT, () => {
+      // Use console here since logger is inside app
+      console.log(`Server running on http://localhost:${PORT}`);
+      console.log(`Health check: http://localhost:${PORT}/health`);
+    });
+
+    // Optional: graceful shutdown
+    process.on("SIGTERM", () => {
+      console.log("SIGTERM received. Shutting down...");
+      server.close(() => process.exit(0));
     });
   } catch (err) {
     console.error("Server startup failed:", err.message);
