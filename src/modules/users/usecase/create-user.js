@@ -13,7 +13,7 @@ module.exports = function ({
       username: Joi.string().alphanum().min(3).max(50).required(),
       password: Joi.string().min(6).max(100).required(),
       email: Joi.string().email().max(100).required(),
-      employee_code: Joi.string().max(30).required(),
+      employee_code: Joi.string().max(30).allow(null, "").optional(),
       first_name: Joi.string().max(50).required(),
       middle_name: Joi.string().max(50).allow("").optional(),
       last_name: Joi.string().max(50).required(),
@@ -38,18 +38,26 @@ module.exports = function ({
       throw new UnknownError(error.details[0].message);
     }
 
-    // Check uniqueness
+    // Check uniqueness (only check employee_code if provided)
     const existing = await userDb.findByEmailOrUsernameOrCode({
       email: value.email,
       username: value.username,
-      employee_code: value.employee_code,
+      employee_code: value.employee_code || null,
       logger,
     });
 
     if (existing) {
-      const field = existing.email === value.email ? "email" :
-                   existing.username === value.username ? "username" : "employee_code";
-      throw new UnknownError(`User with this ${field} already exists`);
+      let field = '';
+      if (existing.email === value.email) {
+        field = "email";
+      } else if (existing.username === value.username) {
+        field = "username";
+      } else if (value.employee_code && existing.employee_code === value.employee_code) {
+        field = "employee_code";
+      }
+      if (field) {
+        throw new UnknownError(`User with this ${field} already exists`);
+      }
     }
 
     // Hash password

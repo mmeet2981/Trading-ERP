@@ -1,5 +1,6 @@
 const makeCreateUserAction = require("./create-user-action");
-const { createUser } = require("../usecase");
+const makeUpdateUserAction = require("./update-user-action");
+const { createUser, updateUser } = require("../usecase");
 
 const {
   createErrorResponse,
@@ -12,6 +13,14 @@ const createUserAction = makeCreateUserAction({
   createUserUseCase: createUser,
 });
 
+const updateUserAction = makeUpdateUserAction({
+  createErrorResponse,
+  createSuccessResponse,
+  updateUserUseCase: updateUser,
+});
+
+
 module.exports = {
   createUserAction,
+  updateUserAction,
 };
