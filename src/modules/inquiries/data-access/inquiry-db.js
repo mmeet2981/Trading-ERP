@@ -18,11 +18,11 @@ module.exports = function ({
   };
 
   async function createInquiry({ inquiryData, transaction, logger }) {
-    const context = { 
+    const context = {
       operation: 'createInquiry',
-      inquiryCode: inquiryData.inquiry_code 
+      inquiryCode: inquiryData.inquiry_code
     };
-    
+
     try {
       logger.debug(context, 'Creating inquiry in database');
 
@@ -68,30 +68,30 @@ module.exports = function ({
 
       const insertedRecord = result[0][0];
       logger.debug({ ...context, inquiryId: insertedRecord.id }, 'Inquiry created successfully');
-      
+
       return insertedRecord;
     } catch (err) {
       logger.error({ ...context, error: err.message, stack: err.stack }, 'Error creating inquiry');
-      
+
       if (err.name === 'SequelizeUniqueConstraintError') {
         const uniqueError = new Error('Inquiry code already exists');
         uniqueError.name = 'UniqueConstraintError';
         throw uniqueError;
       }
-      
+
       if (err.name === 'SequelizeForeignKeyConstraintError') {
         const fkError = new Error('Foreign key constraint violation');
         fkError.name = 'ForeignKeyError';
         throw fkError;
       }
-      
+
       throw new UnknownError('Failed to create inquiry');
     }
   }
 
   async function getInquiryCountForToday({ logger, transaction }) {
     const context = { operation: 'getInquiryCountForToday' };
-    
+
     try {
       logger.debug(context, 'Getting today\'s inquiry count');
 
@@ -108,7 +108,7 @@ module.exports = function ({
 
       const count = parseInt(result[0].count);
       logger.debug({ ...context, count }, 'Retrieved inquiry count');
-      
+
       return count;
     } catch (err) {
       logger.error({ ...context, error: err.message }, 'Error getting inquiry count');
@@ -118,7 +118,7 @@ module.exports = function ({
 
   async function getCustomerById({ customerId, logger, transaction }) {
     const context = { operation: 'getCustomerById', customerId };
-    
+
     try {
       if (!customerId) {
         logger.debug(context, 'No customer ID provided, returning null');
@@ -127,7 +127,7 @@ module.exports = function ({
 
       logger.debug(context, 'Getting customer by ID');
       const query = 'SELECT * FROM crm_contacts WHERE id = $1';
-      
+
       const result = await sequelize.query(query, {
         bind: [customerId],
         transaction,
@@ -136,7 +136,7 @@ module.exports = function ({
 
       const customer = result[0] || null;
       logger.debug({ ...context, found: !!customer }, customer ? 'Customer found' : 'Customer not found');
-      
+
       return customer;
     } catch (err) {
       logger.error({ ...context, error: err.message }, 'Error getting customer');
@@ -146,7 +146,7 @@ module.exports = function ({
 
   async function getUserById({ userId, logger, transaction }) {
     const context = { operation: 'getUserById', userId };
-    
+
     try {
       if (!userId) {
         logger.debug(context, 'No user ID provided, returning null');
@@ -155,7 +155,7 @@ module.exports = function ({
 
       logger.debug(context, 'Getting user by ID');
       const query = 'SELECT * FROM users WHERE user_id = $1';
-      
+
       const result = await sequelize.query(query, {
         bind: [userId],
         transaction,
@@ -164,7 +164,7 @@ module.exports = function ({
 
       const user = result[0] || null;
       logger.debug({ ...context, found: !!user }, user ? 'User found' : 'User not found');
-      
+
       return user;
     } catch (err) {
       logger.error({ ...context, error: err.message }, 'Error getting user');
@@ -172,153 +172,153 @@ module.exports = function ({
     }
   }
 
-  async function findOrCreateCustomer({ 
-    customerData, 
-    transaction, 
-    logger 
+  async function findOrCreateCustomer({
+    customerData,
+    transaction,
+    logger
   }) {
-    const context = { 
+    const context = {
       operation: 'findOrCreateCustomer',
       phoneNumber: customerData.phone_number,
-      email: customerData.email 
+      email: customerData.email
     };
-    
+
     try {
       logger.info(context, 'Finding or creating customer');
-  
+
       // Validate at least one identifier is provided
       if (!customerData.phone_number && !customerData.email) {
         logger.warn(context, 'Neither phone nor email provided for customer identification');
         throw new ValidationError('Either phone number or email must be provided');
       }
-  
+
       let customer = null;
       let foundBy = null;
-      
+
       // Try to find by phone number first (if provided)
       if (customerData.phone_number) {
         logger.debug({ ...context, searchBy: 'phone' }, 'Searching customer by phone');
-        
+
         const query = 'SELECT * FROM crm_contacts WHERE phone_number = $1';
         const result = await sequelize.query(query, {
           bind: [customerData.phone_number],
           transaction,
           type: sequelize.QueryTypes.SELECT
         });
-        
+
         if (result[0]) {
           customer = result[0];
           foundBy = 'phone';
           logger.info({ ...context, customerId: customer.id, foundBy: 'phone' }, 'Found existing customer by phone');
         }
       }
-  
+
       // Try by email if phone not found and email provided
       if (!customer && customerData.email) {
         logger.debug({ ...context, searchBy: 'email' }, 'Searching customer by email');
-        
+
         const query = 'SELECT * FROM crm_contacts WHERE email = $1';
         const result = await sequelize.query(query, {
           bind: [customerData.email],
           transaction,
           type: sequelize.QueryTypes.SELECT
         });
-        
+
         if (result[0]) {
           customer = result[0];
           foundBy = 'email';
           logger.info({ ...context, customerId: customer.id, foundBy: 'email' }, 'Found existing customer by email');
         }
       }
-  
+
       // If customer found, update ALL provided fields
       if (customer) {
         // Prepare update data - include all fields from customerData
         const updateFields = [];
         const updateValues = [];
         let paramCount = 1;
-        
+
         // Check and add each field that's provided in customerData
         if (customerData.name !== undefined && customerData.name !== null) {
           updateFields.push(`name = $${paramCount}`);
           updateValues.push(customerData.name);
           paramCount++;
         }
-        
+
         if (customerData.poc_name !== undefined && customerData.poc_name !== null) {
           updateFields.push(`poc_name = $${paramCount}`);
           updateValues.push(customerData.poc_name);
           paramCount++;
         }
-        
+
         if (customerData.phone_number !== undefined && customerData.phone_number !== null) {
           updateFields.push(`phone_number = $${paramCount}`);
           updateValues.push(customerData.phone_number);
           paramCount++;
         }
-        
+
         if (customerData.whatsapp_number !== undefined && customerData.whatsapp_number !== null) {
           updateFields.push(`whatsapp_number = $${paramCount}`);
           updateValues.push(customerData.whatsapp_number);
           paramCount++;
         }
-        
+
         if (customerData.email !== undefined && customerData.email !== null) {
           updateFields.push(`email = $${paramCount}`);
           updateValues.push(customerData.email);
           paramCount++;
         }
-        
+
         if (customerData.address !== undefined && customerData.address !== null) {
           updateFields.push(`address = $${paramCount}`);
           updateValues.push(customerData.address);
           paramCount++;
         }
-        
+
         if (customerData.preferred_contact_method !== undefined && customerData.preferred_contact_method !== null) {
           updateFields.push(`preferred_contact_method = $${paramCount}`);
           updateValues.push(customerData.preferred_contact_method);
           paramCount++;
         }
-        
+
         // If there are fields to update
         if (updateFields.length > 0) {
           // Add updated_at
           updateFields.push(`updated_at = $${paramCount}`);
           updateValues.push(new Date());
           paramCount++;
-          
+
           // Add customer ID
           updateValues.push(customer.id);
-          
+
           const updateQuery = `
             UPDATE crm_contacts 
             SET ${updateFields.join(', ')}
             WHERE id = $${paramCount}
             RETURNING *
           `;
-          
+
           const updateResult = await sequelize.query(updateQuery, {
             bind: updateValues,
             transaction,
             type: sequelize.QueryTypes.UPDATE
           });
-          
+
           customer = updateResult[0][0];
-          logger.info({ 
-            ...context, 
-            customerId: customer.id, 
+          logger.info({
+            ...context,
+            customerId: customer.id,
             updatedFields: updateFields,
-            foundBy 
+            foundBy
           }, 'Updated existing customer');
         }
-        
+
         return customer;
       }
-  
+
       // Create new customer if not found
       logger.info(context, 'Creating new customer');
-      
+
       const createQuery = `
         INSERT INTO crm_contacts (
           name, poc_name, phone_number, whatsapp_number, 
@@ -327,7 +327,7 @@ module.exports = function ({
         ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
         RETURNING *
       `;
-  
+
       const values = [
         customerData.name || null,
         customerData.poc_name || null,
@@ -339,49 +339,49 @@ module.exports = function ({
         new Date(),
         new Date()
       ];
-  
+
       const result = await sequelize.query(createQuery, {
         bind: values,
         transaction,
         type: sequelize.QueryTypes.INSERT
       });
-  
+
       customer = result[0][0];
       logger.info({ ...context, customerId: customer.id, action: 'created' }, 'Created new customer');
-      
+
       return customer;
     } catch (err) {
-      logger.error({ 
-        ...context, 
-        error: err.message, 
+      logger.error({
+        ...context,
+        error: err.message,
         stack: err.stack,
-        customerData 
+        customerData
       }, 'Error finding/creating customer');
-      
+
       if (err.name === 'SequelizeUniqueConstraintError') {
         const uniqueError = new Error('Customer with this phone or email already exists');
         uniqueError.name = 'UniqueConstraintError';
         throw uniqueError;
       }
-      
+
       throw new UnknownError('Failed to find or create customer');
     }
   }
 
-  async function getInquiryList({ 
-    filters = {}, 
-    pagination = {}, 
-    logger 
+  async function getInquiryList({
+    filters = {},
+    pagination = {},
+    logger
   }) {
-    const context = { 
+    const context = {
       operation: 'getInquiryList',
       filters,
       pagination
     };
-    
+
     try {
       logger.info(context, 'Fetching inquiry list');
-      
+
       // Build base query with joins
       let query = `
         SELECT 
@@ -418,107 +418,107 @@ module.exports = function ({
         LEFT JOIN users u ON i.assigned_sales_person = u.user_id
         WHERE i.is_deleted = false 
       `;
-  
+
       const values = [];
       let paramCount = 1;
-  
+
       // Apply filters
       if (filters.source) {
         query += ` AND i.source = $${paramCount}`;
         values.push(filters.source);
         paramCount++;
       }
-  
+
       if (filters.status) {
         query += ` AND i.status = $${paramCount}`;
         values.push(filters.status);
         paramCount++;
       }
-  
+
       if (filters.sla_status) {
         query += ` AND i.sla_status = $${paramCount}`;
         values.push(filters.sla_status);
         paramCount++;
       }
-  
+
       if (filters.customer_id) {
         query += ` AND i.customer_id = $${paramCount}`;
         values.push(filters.customer_id);
         paramCount++;
       }
-  
+
       if (filters.customer_name) {
         query += ` AND c.name ILIKE $${paramCount}`;
         values.push(`%${filters.customer_name}%`);
         paramCount++;
       }
-  
+
       if (filters.customer_phone) {
         query += ` AND c.phone_number ILIKE $${paramCount}`;
         values.push(`%${filters.customer_phone}%`);
         paramCount++;
       }
-  
+
       if (filters.customer_email) {
         query += ` AND c.email ILIKE $${paramCount}`;
         values.push(`%${filters.customer_email}%`);
         paramCount++;
       }
-  
+
       if (filters.assigned_sales_person) {
         query += ` AND i.assigned_sales_person = $${paramCount}`;
         values.push(filters.assigned_sales_person);
         paramCount++;
       }
-  
+
       if (filters.product_requested) {
         query += ` AND i.product_requested ILIKE $${paramCount}`;
         values.push(`%${filters.product_requested}%`);
         paramCount++;
       }
-  
+
       // Date range filters
       if (filters.start_date) {
         query += ` AND DATE(i.created_at) >= $${paramCount}`;
         values.push(filters.start_date);
         paramCount++;
       }
-  
+
       if (filters.end_date) {
         query += ` AND DATE(i.created_at) <= $${paramCount}`;
         values.push(filters.end_date);
         paramCount++;
       }
-  
+
       if (filters.inquiry_date) {
         query += ` AND DATE(i.inquiry_datetime) = $${paramCount}`;
         values.push(filters.inquiry_date);
         paramCount++;
       }
-  
+
       // Add sorting
       const sortField = filters.sort_by || 'i.created_at';
       const sortOrder = filters.sort_order === 'asc' ? 'ASC' : 'DESC';
       query += ` ORDER BY ${sortField} ${sortOrder}`;
-  
+
       // Add pagination
       const limit = pagination.limit || 50;
       const offset = pagination.offset || 0;
       query += ` LIMIT $${paramCount}`;
       values.push(limit);
       paramCount++;
-      
+
       query += ` OFFSET $${paramCount}`;
       values.push(offset);
-      
+
       logger.debug({ ...context, query, values }, 'Executing inquiry list query');
-  
+
       // Execute query
       const result = await sequelize.query(query, {
         bind: values,
         type: sequelize.QueryTypes.SELECT
       });
-  
+
       // Get total count for pagination
       let countQuery = `
         SELECT COUNT(*) as total_count
@@ -526,54 +526,54 @@ module.exports = function ({
         LEFT JOIN crm_contacts c ON i.customer_id = c.id
         WHERE i.is_deleted = false
       `;
-  
+
       // Remove pagination and ordering from count query, keep filters
       const countValues = [];
       let countParamCount = 1;
-  
+
       // Reapply filters for count
       if (filters.source) {
         countQuery += ` AND i.source = $${countParamCount}`;
         countValues.push(filters.source);
         countParamCount++;
       }
-  
+
       if (filters.status) {
         countQuery += ` AND i.status = $${countParamCount}`;
         countValues.push(filters.status);
         countParamCount++;
       }
-  
+
       // ... apply same filters as above for count query
       // (For brevity, repeating the filter logic. In production, you might refactor this)
-  
+
       if (filters.customer_name) {
         countQuery += ` AND c.name ILIKE $${countParamCount}`;
         countValues.push(`%${filters.customer_name}%`);
         countParamCount++;
       }
-  
+
       if (filters.start_date) {
         countQuery += ` AND DATE(i.created_at) >= $${countParamCount}`;
         countValues.push(filters.start_date);
         countParamCount++;
       }
-  
+
       if (filters.end_date) {
         countQuery += ` AND DATE(i.created_at) <= $${countParamCount}`;
         countValues.push(filters.end_date);
         countParamCount++;
       }
-  
+
       const countResult = await sequelize.query(countQuery, {
         bind: countValues,
         type: sequelize.QueryTypes.SELECT
       });
-  
+
       const totalCount = parseInt(countResult[0]?.total_count) || 0;
-  
+
       logger.info({ ...context, count: result.length, totalCount }, 'Inquiry list fetched successfully');
-  
+
       return {
         inquiries: result,
         pagination: {
@@ -585,27 +585,27 @@ module.exports = function ({
         }
       };
     } catch (err) {
-      logger.error({ 
-        ...context, 
-        error: err.message, 
-        stack: err.stack 
+      logger.error({
+        ...context,
+        error: err.message,
+        stack: err.stack
       }, 'Error fetching inquiry list');
       throw new UnknownError('Failed to fetch inquiry list');
     }
   }
 
-  async function getInquiryById({ 
-    inquiryId, 
-    logger 
+  async function getInquiryById({
+    inquiryId,
+    logger
   }) {
-    const context = { 
+    const context = {
       operation: 'getInquiryById',
-      inquiryId 
+      inquiryId
     };
-    
+
     try {
       logger.info(context, 'Fetching inquiry details by ID');
-      
+
       // Query to get all inquiry details with customer and user information
       const query = `
         SELECT 
@@ -644,22 +644,22 @@ module.exports = function ({
         LEFT JOIN designations des ON u.designation_id = des.designation_id
         WHERE i.id = $1 AND i.is_deleted = false
       `;
-  
+
       const values = [inquiryId];
-      
+
       logger.debug({ ...context, query, values }, 'Executing inquiry details query');
-  
+
       // Execute query
       const result = await sequelize.query(query, {
         bind: values,
         type: sequelize.QueryTypes.SELECT
       });
-  
+
       if (result.length === 0) {
         logger.warn(context, 'Inquiry not found');
         throw new NotFoundError('Inquiry not found');
       }
-  
+
       // Get interaction history if needed
       const interactionsQuery = `
         SELECT 
@@ -680,14 +680,14 @@ module.exports = function ({
         ORDER BY interaction_datetime DESC
         LIMIT 50
       `;
-  
+
       const interactionsResult = await sequelize.query(interactionsQuery, {
         bind: [inquiryId],
         type: sequelize.QueryTypes.SELECT
       });
-  
+
       const inquiryData = result[0];
-      
+
       // Format the response
       const formattedInquiry = {
         id: inquiryData.id,
@@ -753,266 +753,230 @@ module.exports = function ({
           created_at: interaction.created_at
         }))
       };
-  
+
       logger.info({ ...context, inquiryId: formattedInquiry.id, inquiryCode: formattedInquiry.inquiry_code }, 'Inquiry details fetched successfully');
-      
+
       return formattedInquiry;
     } catch (err) {
       if (err instanceof NotFoundError) {
         throw err;
       }
-      
-      logger.error({ 
-        ...context, 
-        error: err.message, 
-        stack: err.stack 
+
+      logger.error({
+        ...context,
+        error: err.message,
+        stack: err.stack
       }, 'Error fetching inquiry details');
       throw new UnknownError('Failed to fetch inquiry details');
     }
   }
 
-  async function updateInquiry({ 
-    inquiryId, 
-    updateData, 
-    transaction, 
-    logger 
+  async function updateInquiry({
+    inquiryId,
+    updateData,
+    transaction,
+    logger
   }) {
-    const context = { 
+    const context = {
       operation: 'updateInquiry',
       inquiryId,
       updateFields: Object.keys(updateData)
     };
-    
+
     try {
       logger.info(context, 'Updating inquiry');
-      
+
       // Build dynamic update query
       const updateFields = [];
       const values = [];
       let paramCount = 1;
-      
+
       // Add each field to update
       Object.keys(updateData).forEach((field, index) => {
         updateFields.push(`${field} = $${paramCount}`);
         values.push(updateData[field]);
         paramCount++;
       });
-      
+
       // Add updated_at timestamp
       updateFields.push(`updated_at = $${paramCount}`);
       values.push(new Date());
       paramCount++;
-      
+
       // Add inquiry ID to values
       values.push(inquiryId);
-      
+
       const query = `
         UPDATE inquiries 
         SET ${updateFields.join(', ')}
         WHERE id = $${paramCount} AND is_deleted = false 
         RETURNING *
       `;
-      
+
       logger.debug({ ...context, query, values }, 'Executing update query');
-  
+
       const result = await sequelize.query(query, {
         bind: values,
         transaction,
         type: sequelize.QueryTypes.UPDATE
       });
-  
+
       if (result[1] === 0) {
         logger.warn(context, 'Inquiry not found for update');
         throw new NotFoundError('Inquiry not found');
       }
-  
+
       const updatedInquiry = result[0][0];
       logger.info({ ...context, updatedInquiryId: updatedInquiry.id }, 'Inquiry updated successfully');
-      
+
       return updatedInquiry;
     } catch (err) {
-      logger.error({ 
-        ...context, 
-        error: err.message, 
-        stack: err.stack 
+      logger.error({
+        ...context,
+        error: err.message,
+        stack: err.stack
       }, 'Error updating inquiry');
-      
+
       if (err instanceof NotFoundError) {
         throw err;
       }
-      
+
       if (err.name === 'SequelizeUniqueConstraintError') {
         const uniqueError = new Error('Inquiry code already exists');
         uniqueError.name = 'UniqueConstraintError';
         throw uniqueError;
       }
-      
+
       if (err.name === 'SequelizeForeignKeyConstraintError') {
         const fkError = new Error('Foreign key constraint violation - check customer or user exists');
         fkError.name = 'ForeignKeyError';
         throw fkError;
       }
-      
+
       throw new UnknownError('Failed to update inquiry');
     }
   }
-  
-  async function validateInquiryExists({ 
-    inquiryId, 
-    transaction, 
-    logger 
+
+  async function validateInquiryExists({
+    inquiryId,
+    transaction,
+    logger
   }) {
-    const context = { 
+    const context = {
       operation: 'validateInquiryExists',
-      inquiryId 
+      inquiryId
     };
-    
+
     try {
       logger.debug(context, 'Validating inquiry exists');
-      
+
       const query = 'SELECT id, status FROM inquiries WHERE id = $1 AND is_deleted = false';
       const result = await sequelize.query(query, {
         bind: [inquiryId],
         transaction,
         type: sequelize.QueryTypes.SELECT
       });
-  
+
       if (!result[0]) {
         logger.warn(context, 'Inquiry not found');
         throw new NotFoundError('Inquiry not found');
       }
-  
+
       logger.debug({ ...context, status: result[0].status }, 'Inquiry exists');
       return result[0];
     } catch (err) {
       if (err instanceof NotFoundError) {
         throw err;
       }
-      
+
       logger.error({ ...context, error: err.message }, 'Error validating inquiry');
       throw new UnknownError('Failed to validate inquiry');
     }
   }
 
-async function softDeleteInquiry({ 
-  inquiryId, 
-  deletedBy, 
-  transaction, 
-  logger 
-}) {
-  const context = { 
-    operation: 'softDeleteInquiry',
+  async function softDeleteInquiry({
     inquiryId,
-    deletedBy 
-  };
-  
-  try {
-    logger.info(context, 'Soft deleting inquiry');
-    
-    // First, check if inquiry exists and is not already deleted
-    const checkQuery = 'SELECT id, inquiry_code, is_deleted FROM inquiries WHERE id = $1';
-    const checkResult = await sequelize.query(checkQuery, {
-      bind: [inquiryId],
-      transaction,
-      type: sequelize.QueryTypes.SELECT
-    });
-
-    if (checkResult.length === 0) {
-      logger.warn(context, 'Inquiry not found for soft delete');
-      throw new NotFoundError('Inquiry not found');
-    }
-
-    if (checkResult[0].is_deleted) {
-      logger.warn({ ...context, inquiryCode: checkResult[0].inquiry_code }, 'Inquiry already deleted');
-      throw new ValidationError('Inquiry is already deleted');
-    }
-
-    // Soft delete the inquiry
-    const deleteQuery = `
-      UPDATE inquiries 
-      SET 
-        is_deleted = true,
-        status = 'CANCELLED', -- Optional: Update status to CANCELLED when deleted
-        updated_at = $1
-      WHERE id = $2
-      RETURNING *
-    `;
-
-    const values = [
-      new Date(),
+    transaction,
+    logger
+  }) {
+    const context = {
+      operation: 'softDeleteInquiry',
       inquiryId
-    ];
-
-    const result = await sequelize.query(deleteQuery, {
-      bind: values,
-      transaction,
-      type: sequelize.QueryTypes.UPDATE
-    });
-
-    const deletedInquiry = result[0][0];
-    
-    // Create a deletion record in inquiry_interactions for audit trail
-    const interactionQuery = `
-      INSERT INTO inquiry_interactions (
-        inquiry_id,
-        interaction_type,
-        interaction_datetime,
-        outcome,
-        summary,
-        follow_up_required,
-        follow_up_status,
-        created_by,
-        created_at
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
-    `;
-
-    const interactionValues = [
-      inquiryId,
-      'SYSTEM_DELETION',
-      new Date(),
-      'INQUIRY_SOFT_DELETED',
-      `Inquiry was soft deleted by user ${deletedBy || 'system'}`,
-      false,
-      'NOT_REQUIRED',
-      deletedBy || null,
-      new Date()
-    ];
-
-    await sequelize.query(interactionQuery, {
-      bind: interactionValues,
-      transaction,
-      type: sequelize.QueryTypes.INSERT
-    });
-
-    logger.info({ 
-      ...context, 
-      inquiryId: deletedInquiry.id,
-      inquiryCode: deletedInquiry.inquiry_code 
-    }, 'Inquiry soft deleted successfully');
-
-    return {
-      id: deletedInquiry.id,
-      inquiry_code: deletedInquiry.inquiry_code,
-      is_deleted: deletedInquiry.is_deleted,
-      status: deletedInquiry.status,
-      deleted_at: deletedInquiry.updated_at
     };
-  } catch (err) {
-    logger.error({ 
-      ...context, 
-      error: err.message, 
-      stack: err.stack 
-    }, 'Error soft deleting inquiry');
-    
-    if (err instanceof NotFoundError || err.name === 'NotFoundError') {
-      throw err;
+
+    try {
+      logger.info(context, 'Soft deleting inquiry');
+
+      // First, check if inquiry exists and is not already deleted
+      const checkQuery = 'SELECT id, inquiry_code, is_deleted FROM inquiries WHERE id = $1';
+      const checkResult = await sequelize.query(checkQuery, {
+        bind: [inquiryId],
+        transaction,
+        type: sequelize.QueryTypes.SELECT
+      });
+
+      if (checkResult.length === 0) {
+        logger.warn(context, 'Inquiry not found for soft delete');
+        throw new NotFoundError('Inquiry not found');
+      }
+
+      if (checkResult[0].is_deleted) {
+        logger.warn({ ...context, inquiryCode: checkResult[0].inquiry_code }, 'Inquiry already deleted');
+        throw new ValidationError('Inquiry is already deleted');
+      }
+
+      // Soft delete the inquiry (only set is_deleted = true, keep status as is)
+      const deleteQuery = `
+        UPDATE inquiries 
+        SET 
+          is_deleted = true,
+          updated_at = $1
+        WHERE id = $2
+        RETURNING *
+      `;
+
+      const values = [
+        new Date(),
+        inquiryId
+      ];
+
+      const result = await sequelize.query(deleteQuery, {
+        bind: values,
+        transaction,
+        type: sequelize.QueryTypes.UPDATE
+      });
+
+      const deletedInquiry = result[0][0];
+
+      logger.info({
+        ...context,
+        inquiryId: deletedInquiry.id,
+        inquiryCode: deletedInquiry.inquiry_code
+      }, 'Inquiry soft deleted successfully');
+
+      return {
+        id: deletedInquiry.id,
+        inquiry_code: deletedInquiry.inquiry_code,
+        is_deleted: deletedInquiry.is_deleted,
+        status: deletedInquiry.status,
+        deleted_at: deletedInquiry.updated_at
+      };
+    } catch (err) {
+      logger.error({
+        ...context,
+        error: err.message,
+        stack: err.stack
+      }, 'Error soft deleting inquiry');
+
+      if (err instanceof NotFoundError || err.name === 'NotFoundError') {
+        throw err;
+      }
+
+      if (err instanceof ValidationError || err.name === 'ValidationError') {
+        throw err;
+      }
+
+      throw new UnknownError('Failed to soft delete inquiry');
     }
-    
-    if (err instanceof ValidationError || err.name === 'ValidationError') {
-      throw err;
-    }
-    
-    throw new UnknownError('Failed to soft delete inquiry');
   }
-}
 };

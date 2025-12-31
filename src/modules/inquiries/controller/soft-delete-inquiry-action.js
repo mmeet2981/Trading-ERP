@@ -25,20 +25,14 @@ module.exports = function ({
           throw new ValidationError('Valid inquiry ID is required');
         }
         
-        // Get deleted_by from request body or user context
-        // In a real app, you might get this from authentication middleware
-        const deletedBy = req.body.deleted_by || req.user?.userId || null;
-        
         logger.debug({ 
           ...context, 
-          inquiryId, 
-          deletedBy 
-        }, 'Extracted parameters');
+          inquiryId
+        }, 'Extracted inquiry ID');
   
         // Call use case
         const result = await softDeleteInquiry({
           inquiryId,
-          deletedBy,
           logger: logger.child({ module: 'softDeleteInquiryUsecase', requestId })
         });
   

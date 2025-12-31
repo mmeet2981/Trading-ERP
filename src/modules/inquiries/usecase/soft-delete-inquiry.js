@@ -7,21 +7,18 @@ module.exports = function ({
   }) {
     return async ({
       inquiryId,
-      deletedBy,
       logger
     }) => {
       const context = { 
         operation: 'softDeleteInquiry',
-        inquiryId,
-        deletedBy
+        inquiryId
       };
       
       logger.info(context, 'Processing soft delete inquiry request');
   
-      // Validation schema
+      // Simple validation schema
       const paramsSchema = Joi.object({
-        inquiryId: Joi.number().integer().min(1).required().label('Inquiry ID'),
-        deletedBy: Joi.number().integer().min(1).allow(null).label('Deleted By User ID')
+        inquiryId: Joi.number().integer().min(1).required().label('Inquiry ID')
       });
   
       // Validate parameters
@@ -29,8 +26,7 @@ module.exports = function ({
         logger.debug({ ...context }, 'Validating parameters');
         
         const validatedParams = await paramsSchema.validateAsync({
-          inquiryId,
-          deletedBy
+          inquiryId
         }, { abortEarly: false });
         
         logger.debug({ ...context, validatedParams }, 'Validation passed');
@@ -43,25 +39,9 @@ module.exports = function ({
         const transaction = await sequelize.transaction();
   
         try {
-          // Validate deletedBy user exists if provided
-          if (validatedParams.deletedBy) {
-            logger.debug({ ...context, userId: validatedParams.deletedBy }, 'Validating user who is deleting');
-            
-            const user = await inquiryDb.getUserById({
-              userId: validatedParams.deletedBy,
-              logger,
-              transaction
-            });
-  
-            if (!user) {
-              throw new ValidationError('User not found');
-            }
-          }
-  
           // Perform soft delete
           const result = await inquiryDb.softDeleteInquiry({
             inquiryId: validatedParams.inquiryId,
-            deletedBy: validatedParams.deletedBy,
             transaction,
             logger
           });
