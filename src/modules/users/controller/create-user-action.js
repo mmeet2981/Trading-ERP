@@ -10,7 +10,7 @@ module.exports = function ({
 
     try {
       const userData = req.body;
-      const createdBy = req.user?.user_id  || 1;
+      const createdBy = req.user.user_id;
 
       const result = await createUserUseCase({
         userData,

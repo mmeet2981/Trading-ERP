@@ -8,20 +8,16 @@ module.exports = function ({
 }) {
   return async function registerUser({ userData, logger }) {
 
-    /* ------------------------------ */
-    /* Validation                     */
-    /* ------------------------------ */
-
     const schema = Joi.object({
-      first_name: Joi.string().max(50).required().label('First Name'),
-      middle_name: Joi.string().max(50).allow('', null).optional().label('Middle Name'),
-      last_name: Joi.string().max(50).required().label('Last Name'),
-      username: Joi.string().alphanum().min(3).max(50).required().label('Username'),
-      email: Joi.string().email().max(100).required().label('Email'),
-      gender: Joi.string().valid('male', 'female', 'other').required().label('Gender'),
-      date_of_birth: Joi.date().iso().max('now').required().label('Date of Birth'),
-      mobile_number: Joi.string().pattern(/^[0-9]{10,15}$/).required().label('Mobile Number'),
-      password: Joi.string().min(6).max(100).required().label('Password'),
+      first_name: Joi.string().max(50).required(),
+      middle_name: Joi.string().max(50).allow('', null).optional(),
+      last_name: Joi.string().max(50).required(),
+      username: Joi.string().alphanum().min(3).max(50).required(),
+      email: Joi.string().email().max(100).required(),
+      gender: Joi.string().valid('male', 'female', 'other').required(),
+      date_of_birth: Joi.date().iso().max('now').required(),
+      mobile_number: Joi.string().pattern(/^[0-9]{10,15}$/).required(),
+      password: Joi.string().min(6).max(100).required(),
     });
 
     const { error, value } = schema.validate(userData);
@@ -29,55 +25,40 @@ module.exports = function ({
       throw new UnknownError(error.details[0].message);
     }
 
-    /* ------------------------------ */
-    /* Uniqueness Check               */
-    /* ------------------------------ */
-
-    const existingUser = await userDb.findExistingUser({
+    const normalized = {
+      ...value,
       email: value.email.toLowerCase(),
       username: value.username.toLowerCase(),
-      mobile_number: value.mobile_number,
+    };
+
+    const existingUser = await userDb.findExistingUser({
+      email: normalized.email,
+      username: normalized.username,
+      mobile_number: normalized.mobile_number,
       logger,
     });
 
     if (existingUser) {
-      if (existingUser.email === value.email.toLowerCase()) {
-        throw new UnknownError('Email already exists');
-      }
-      if (existingUser.username === value.username.toLowerCase()) {
-        throw new UnknownError('Username already exists');
-      }
-      if (existingUser.mobile_number === value.mobile_number) {
-        throw new UnknownError('Mobile number already exists');
-      }
+      throw new UnknownError('User already exists with given credentials');
     }
 
-    /* ------------------------------ */
-    /* Password Hashing               */
-    /* ------------------------------ */
-
-    const hashedPassword = await bcrypt.hash(value.password, 10);
-
-    /* ------------------------------ */
-    /* Prepare Registration Payload   */
-    /* ------------------------------ */
-
+    const hashedPassword = await bcrypt.hash(normalized.password, 10);
     const registrationData = {
-      username: value.username.toLowerCase(),
-      email: value.email.toLowerCase(),
+      username: normalized.username,
+      email: normalized.email,
       password: hashedPassword,
 
-      first_name: value.first_name,
-      middle_name: value.middle_name,
-      last_name: value.last_name,
+      first_name: normalized.first_name,
+      middle_name: normalized.middle_name,
+      last_name: normalized.last_name,
 
-      gender: value.gender,
-      date_of_birth: value.date_of_birth,
-      mobile_number: value.mobile_number,
+      gender: normalized.gender,
+      date_of_birth: normalized.date_of_birth,
+      mobile_number: normalized.mobile_number,
 
-      employee_code: null,              // optional
-      date_of_joining: new Date(),       // today
-      employment_status: 'active',       // default
+      employee_code: null,
+      date_of_joining: new Date(),
+      employment_status: 'active',
       country: 'India',
 
       is_admin: false,
@@ -87,32 +68,15 @@ module.exports = function ({
       updated_by: null,
     };
 
-    /* ------------------------------ */
-    /* Create User                    */
-    /* ------------------------------ */
-
     const createdUser = await userDb.createUser({
       userData: registrationData,
       logger,
     });
 
-    /* ------------------------------ */
-    /* Response                       */
-    /* ------------------------------ */
-
     return {
       success: true,
-      message: 'User registered successfully',
-      user: {
-        user_id: createdUser.user_id,
-        username: createdUser.username,
-        email: createdUser.email,
-        full_name: createdUser.full_name,
-        first_name: createdUser.first_name,
-        last_name: createdUser.last_name,
-        mobile_number: createdUser.mobile_number,
-        created_at: createdUser.createdAt,
-      },
+      message: 'user registered',
+      data: createdUser,
     };
   };
 };

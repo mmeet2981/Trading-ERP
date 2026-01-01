@@ -1,4 +1,3 @@
-
 'use strict';
 
 module.exports = function ({
@@ -8,29 +7,36 @@ module.exports = function ({
    UnknownError
   }) {
   return async function createUser({ userData, createdBy, logger }) {
-    // Validation schema - adjust required/optional fields as per your business rules
+    // Validation schema - focused on users table fields only
     const schema = Joi.object({
       username: Joi.string().alphanum().min(3).max(50).required(),
       password: Joi.string().min(6).max(100).required(),
       email: Joi.string().email().max(100).required(),
       employee_code: Joi.string().max(30).allow(null, "").optional(),
       first_name: Joi.string().max(50).required(),
-      middle_name: Joi.string().max(50).allow("").optional(),
+      middle_name: Joi.string().max(50).allow(null, "").optional(),
       last_name: Joi.string().max(50).required(),
-      gender: Joi.string().valid("male", "female", "other").optional(),
-      date_of_birth: Joi.date().iso().optional(),
+      gender: Joi.string().valid("male", "female", "other").allow(null).optional(),
+      date_of_birth: Joi.date().iso().allow(null).optional(),
+      blood_group: Joi.string().max(5).allow(null).optional(),
+      marital_status: Joi.string().max(20).allow(null).optional(),
       mobile_number: Joi.string().pattern(/^[0-9]{10,15}$/).required(),
-      department_id: Joi.number().integer().optional().allow(null),
-      designation_id: Joi.number().integer().optional().allow(null),
-      employment_type: Joi.string()
-        .valid("full_time", "part_time", "contract", "intern")
-        .default("full_time"),
+      alternate_mobile: Joi.string().pattern(/^[0-9]{10,15}$/).allow(null).optional(),
+      address_line1: Joi.string().max(100).allow(null).optional(),
+      address_line2: Joi.string().max(100).allow(null).optional(),
+      city: Joi.string().max(50).allow(null).optional(),
+      taluka: Joi.string().max(50).allow(null).optional(),
+      district: Joi.string().max(50).allow(null).optional(),
+      state: Joi.string().max(50).allow(null).optional(),
+      country: Joi.string().max(50).default("India").optional(),
+      pin_code: Joi.string().max(10).allow(null).optional(),
+      department_id: Joi.number().integer().allow(null).optional(),
+      designation_id: Joi.number().integer().allow(null).optional(),
+      employment_type_id: Joi.number().integer().allow(null).optional(),
       date_of_joining: Joi.date().iso().required(),
-      reporting_manager_id: Joi.number().integer().optional().allow(null),
-      user_role: Joi.string()
-        .valid("manager", "sales", "account", "worker", "admin_manager")
-        .required(),
-      // Add more optional fields if needed
+      reporting_manager_id: Joi.number().integer().allow(null).optional(),
+      profile_photo_url: Joi.string().uri().allow(null).optional(),
+      is_admin: Joi.boolean().default(false).optional(),
     });
 
     const { error, value } = schema.validate(userData);
@@ -38,7 +44,7 @@ module.exports = function ({
       throw new UnknownError(error.details[0].message);
     }
 
-    // Check uniqueness (only check employee_code if provided)
+   
     const existing = await userDb.findByEmailOrUsernameOrCode({
       email: value.email,
       username: value.username,
@@ -64,34 +70,22 @@ module.exports = function ({
     const saltRounds = 10;
     const hashedPassword = await bcrypt.hash(value.password, saltRounds);
 
-    // Create user
+    // Create user (core users table insert)
     const createdUser = await userDb.createUser({
       userData: {
         ...value,
         password: hashedPassword,
         created_by: createdBy,
         updated_by: createdBy,
-        employment_status: "active",
-        country: "India",
+        employment_status: value.employment_status || "active",
       },
       logger,
     });
 
     return {
       success: true,
-      message: "User created successfully",
-      user: {
-        user_id: createdUser.user_id,
-        username: createdUser.username,
-        email: createdUser.email,
-        employee_code: createdUser.employee_code,
-        full_name: createdUser.full_name,
-        user_role: createdUser.user_role,
-        department_id: createdUser.department_id,
-        designation_id: createdUser.designation_id,
-        employment_status: createdUser.employment_status,
-        date_of_joining: createdUser.date_of_joining,
-      },
-    };
+      message: "user created",
+      data: createdUser
+    };    
   };
 };

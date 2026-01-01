@@ -9,6 +9,7 @@ module.exports = function ({ sequelize, UnknownError }) {
     findByUsernameOrEmail,
     updateLastLogin,
     getUsers,
+    findByEmailOrUsernameOrCode,
   };
 
   /* ---------------------------------------------------- */
@@ -64,7 +65,7 @@ module.exports = function ({ sequelize, UnknownError }) {
       }
 
       if (role_id) {
-        conditions.push(`ur.role_id = $${pc}`);
+        conditions.push(`EXISTS (SELECT 1 FROM user_roles ur WHERE ur.user_id = u.user_id AND ur.role_id = $${pc})`);
         params.push(role_id);
         pc++;
       }
@@ -92,7 +93,6 @@ module.exports = function ({ sequelize, UnknownError }) {
         LEFT JOIN departments d ON d.department_id = u.department_id
         LEFT JOIN designations desg ON desg.designation_id = u.designation_id
         LEFT JOIN users rm ON rm.user_id = u.reporting_manager_id
-        LEFT JOIN user_roles ur ON ur.user_id = u.user_id
         ${whereClause}
         ORDER BY u."createdAt" DESC
         LIMIT $${pc} OFFSET $${pc + 1}
@@ -108,12 +108,12 @@ module.exports = function ({ sequelize, UnknownError }) {
       const countSql = `
         SELECT COUNT(DISTINCT u.user_id) AS total_count
         FROM users u
-        LEFT JOIN user_roles ur ON ur.user_id = u.user_id
         ${whereClause}
       `;
 
+      const countParams = params.slice(0, params.length - 2);
       const countResult = await sequelize.query(countSql, {
-        bind: params.slice(0, params.length - 2),
+        bind: countParams,
         type: sequelize.QueryTypes.SELECT,
       });
 
@@ -176,6 +176,50 @@ module.exports = function ({ sequelize, UnknownError }) {
     }
   }
 
+  async function findByEmailOrUsernameOrCode({ email, username, employee_code, logger }) {
+    try {
+      const conditions = [];
+      const params = [];
+      let pc = 1;
+
+      if (email) {
+        conditions.push(`email = $${pc}`);
+        params.push(email);
+        pc++;
+      }
+      if (username) {
+        conditions.push(`username = $${pc}`);
+        params.push(username);
+        pc++;
+      }
+      if (employee_code) {
+        conditions.push(`employee_code = $${pc}`);
+        params.push(employee_code);
+        pc++;
+      }
+
+      const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(' OR ')}` : '';
+
+      const sql = `
+        SELECT user_id, email, username, employee_code
+        FROM users
+        ${whereClause}
+          AND is_deleted = false
+        LIMIT 1
+      `;
+
+      const result = await sequelize.query(sql, {
+        bind: params,
+        type: sequelize.QueryTypes.SELECT,
+      });
+
+      return result[0] || null;
+    } catch (err) {
+      logger?.error(err);
+      throw new UnknownError("Database error while checking user existence");
+    }
+  }
+
   /* ---------------------------------------------------- */
   /* Create User                                          */
   /* ---------------------------------------------------- */
@@ -189,7 +233,7 @@ module.exports = function ({ sequelize, UnknownError }) {
       const values = [];
   
       const add = (k, v) => {
-        if (v !== undefined && v !== null) {
+        if (v !== undefined && v !== null && v !== '') {
           fields.push(k);
           values.push(v);
         }
@@ -198,23 +242,40 @@ module.exports = function ({ sequelize, UnknownError }) {
       add('username', userData.username);
       add('password', userData.password);
       add('email', userData.email);
-      add('first_name', userData.first_name);
-      add('last_name', userData.last_name);
-      add('mobile_number', userData.mobile_number);
       add('employee_code', userData.employee_code);
-      add('employment_type_id', employmentTypeId);
-      add('date_of_joining', userData.date_of_joining);
-      add('employment_status', userData.employment_status ?? 'active');
+      add('first_name', userData.first_name);
+      add('middle_name', userData.middle_name);
+      add('last_name', userData.last_name);
+      add('gender', userData.gender);
+      add('date_of_birth', userData.date_of_birth);
+      add('blood_group', userData.blood_group);
+      add('marital_status', userData.marital_status);
+      add('mobile_number', userData.mobile_number);
+      add('alternate_mobile', userData.alternate_mobile);
+      add('address_line1', userData.address_line1);
+      add('address_line2', userData.address_line2);
+      add('city', userData.city);
+      add('taluka', userData.taluka);
+      add('district', userData.district);
+      add('state', userData.state);
+      add('country', userData.country || 'India');
+      add('pin_code', userData.pin_code);
       add('department_id', userData.department_id);
       add('designation_id', userData.designation_id);
+      add('date_of_joining', userData.date_of_joining);
+      add('employment_status', userData.employment_status || 'active');
       add('reporting_manager_id', userData.reporting_manager_id);
-      add('is_admin', userData.is_admin ?? false);
+      add('profile_photo_url', userData.profile_photo_url);
+      add('is_admin', userData.is_admin || false);
+      add('employment_type_id', employmentTypeId);
       add('created_by', userData.created_by);
+      add('updated_by', userData.updated_by);
   
       const sql = `
         INSERT INTO users (${fields.join(', ')})
         VALUES (${fields.map((_, i) => `$${i + 1}`).join(', ')})
-        RETURNING user_id, username, email, employee_code, full_name
+        RETURNING user_id, username, email, employee_code, full_name, first_name, last_name,
+                  mobile_number, department_id, designation_id, employment_status, date_of_joining
       `;
   
       const result = await sequelize.query(sql, {
@@ -287,7 +348,7 @@ module.exports = function ({ sequelize, UnknownError }) {
       let pc = 1;
 
       const add = (k, v) => {
-        if (v !== undefined && v !== null) {
+        if (v !== undefined && v !== null && v !== '') {
           fields.push(`${k} = $${pc++}`);
           values.push(v);
         }
@@ -300,16 +361,26 @@ module.exports = function ({ sequelize, UnknownError }) {
       add('last_name', userData.last_name);
       add('gender', userData.gender);
       add('date_of_birth', userData.date_of_birth);
+      add('blood_group', userData.blood_group);
+      add('marital_status', userData.marital_status);
       add('mobile_number', userData.mobile_number);
+      add('alternate_mobile', userData.alternate_mobile);
+      add('address_line1', userData.address_line1);
+      add('address_line2', userData.address_line2);
+      add('city', userData.city);
+      add('taluka', userData.taluka);
+      add('district', userData.district);
+      add('state', userData.state);
+      add('country', userData.country);
+      add('pin_code', userData.pin_code);
       add('employee_code', userData.employee_code);
-      add('employment_type_id', userData.employment_type_id);
       add('department_id', userData.department_id);
       add('designation_id', userData.designation_id);
+      add('employment_type_id', userData.employment_type_id);
       add('employment_status', userData.employment_status);
       add('date_of_joining', userData.date_of_joining);
       add('reporting_manager_id', userData.reporting_manager_id);
-      add('country', userData.country);
-      add('marital_status', userData.marital_status);
+      add('profile_photo_url', userData.profile_photo_url);
       add('is_admin', userData.is_admin);
 
       if (userData.password) {
