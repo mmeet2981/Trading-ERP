@@ -53,15 +53,9 @@ app.get('/health', (req, res) => {
 });
 
 // Try to load routes, but don't crash if they don't exist
-try {
-  const routes = require('./routes');
-  app.use('/', routes);
-} catch (error) {
-  console.warn('Routes module not found, using basic routes');
-  app.get('/', (req, res) => {
-    res.json({ message: 'Welcome to the API' });
-  });
-}
+const routes = require('./routes');
+app.use('/', routes);
+
 
 // 404 handler
 app.use((req, res) => {
