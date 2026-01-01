@@ -622,7 +622,6 @@ module.exports = function ({
           u.user_id AS assigned_user_id,
           u.username AS assigned_user_username,
           u.email AS assigned_user_email,
-          u.user_role AS assigned_user_role,
           u.employee_code AS assigned_user_code,
           u.full_name AS assigned_user_full_name,
           u.first_name AS assigned_user_first_name,
