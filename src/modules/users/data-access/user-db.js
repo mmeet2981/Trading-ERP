@@ -2,7 +2,7 @@
 
 const TABLE_NAME = "users";
 
-module.exports = function ({ db, UnknownError }) {
+module.exports = function ({ sequelize, UnknownError }) {
   return {
     findByEmailOrUsernameOrCode,
     findExistingUser,
@@ -94,18 +94,24 @@ module.exports = function ({ db, UnknownError }) {
   
       params.push(limit, offset);
       
-      const { rows: users } = await db.query(sql, params);
-  
+      const users = await sequelize.query(sql, {
+        bind: params,
+        type: sequelize.QueryTypes.SELECT
+      });
+
       // Query for total count
       const countSql = `
         SELECT COUNT(*) as total_count
         FROM "users" u
         ${whereClause}
       `;
-  
+
       // Remove limit/offset params for count query
       const countParams = params.slice(0, params.length - 2);
-      const { rows: countResult } = await db.query(countSql, countParams);
+      const countResult = await sequelize.query(countSql, {
+        bind: countParams,
+        type: sequelize.QueryTypes.SELECT
+      });
       const totalCount = parseInt(countResult[0].total_count);
   
       return {
@@ -136,9 +142,12 @@ module.exports = function ({ db, UnknownError }) {
 
       sql += ` LIMIT 1`;
 
-      const { rows } = await db.query(sql, params);
+      const result = await sequelize.query(sql, {
+        bind: params,
+        type: sequelize.QueryTypes.SELECT
+      });
 
-      return rows[0] || null;
+      return result[0] || null;
     } catch (err) {
       logger?.error(err, "Error in findByEmailOrUsernameOrCode");
       throw new UnknownError("Database error while checking user existence");
@@ -154,9 +163,12 @@ module.exports = function ({ db, UnknownError }) {
         LIMIT 1
       `;
 
-      const { rows } = await db.query(sql, [email, username, mobile_number]);
+      const result = await sequelize.query(sql, {
+        bind: [email, username, mobile_number],
+        type: sequelize.QueryTypes.SELECT
+      });
 
-      return rows[0] || null;
+      return result[0] || null;
     } catch (err) {
       logger?.error(err, "Error in findExistingUser");
       throw new UnknownError("Database error while checking user existence");
@@ -219,18 +231,21 @@ module.exports = function ({ db, UnknownError }) {
           employment_status, date_of_joining, "createdAt"
       `;
 
-      const { rows } = await db.query(sql, values);
+      const result = await sequelize.query(sql, {
+        bind: values,
+        type: sequelize.QueryTypes.INSERT
+      });
 
-      if (!rows || rows.length === 0) {
+      if (!result || !result[0] || result[0].length === 0) {
         throw new Error("Insert failed - no row returned");
       }
 
-      return rows[0];
+      return result[0][0];
     } catch (err) {
       logger?.error(err, "Error creating user in DB");
       
-      if (err.code === '23505') {
-        const detail = err.detail || '';
+      if (err.name === 'SequelizeUniqueConstraintError' || err.code === '23505') {
+        const detail = err.detail || err.message || '';
         if (detail.includes('email')) throw new UnknownError("Email already exists");
         if (detail.includes('username')) throw new UnknownError("Username already exists");
         if (detail.includes('employee_code')) throw new UnknownError("Employee code already exists");
@@ -254,9 +269,12 @@ module.exports = function ({ db, UnknownError }) {
         LIMIT 1
       `;
 
-      const { rows } = await db.query(sql, [user_id]);
+      const result = await sequelize.query(sql, {
+        bind: [user_id],
+        type: sequelize.QueryTypes.SELECT
+      });
 
-      return rows[0] || null;
+      return result[0] || null;
     } catch (err) {
       logger?.error(err, "Error in findUserById");
       throw new UnknownError("Database error while fetching user");
@@ -329,18 +347,21 @@ module.exports = function ({ db, UnknownError }) {
           is_admin, "createdAt", "updatedAt"
       `;
 
-      const { rows } = await db.query(sql, values);
+      const result = await sequelize.query(sql, {
+        bind: values,
+        type: sequelize.QueryTypes.UPDATE
+      });
 
-      if (!rows || rows.length === 0) {
+      if (!result || !result[0] || result[0].length === 0) {
         throw new UnknownError("User not found or already deleted");
       }
 
-      return rows[0];
+      return result[0][0];
     } catch (err) {
       logger?.error(err, "Error updating user in DB");
       
-      if (err.code === '23505') {
-        const detail = err.detail || '';
+      if (err.name === 'SequelizeUniqueConstraintError' || err.code === '23505') {
+        const detail = err.detail || err.message || '';
         if (detail.includes('email')) throw new UnknownError("Email already exists");
         if (detail.includes('username')) throw new UnknownError("Username already exists");
         if (detail.includes('employee_code')) throw new UnknownError("Employee code already exists");
@@ -366,9 +387,12 @@ module.exports = function ({ db, UnknownError }) {
         LIMIT 1
       `;
 
-      const { rows } = await db.query(sql, [username_or_email.toLowerCase()]);
+      const result = await sequelize.query(sql, {
+        bind: [username_or_email.toLowerCase()],
+        type: sequelize.QueryTypes.SELECT
+      });
 
-      return rows[0] || null;
+      return result[0] || null;
     } catch (err) {
       logger?.error(err, "Error in findByUsernameOrEmail");
       throw new UnknownError("Database error while fetching user");
@@ -384,9 +408,12 @@ module.exports = function ({ db, UnknownError }) {
         RETURNING user_id, last_login_at
       `;
 
-      const { rows } = await db.query(sql, [user_id]);
+      const result = await sequelize.query(sql, {
+        bind: [user_id],
+        type: sequelize.QueryTypes.UPDATE
+      });
 
-      return rows[0] || null;
+      return result[0] && result[0].length > 0 ? result[0][0] : null;
     } catch (err) {
       logger?.error(err, "Error in updateLastLogin");
       throw new UnknownError("Database error while updating last login");

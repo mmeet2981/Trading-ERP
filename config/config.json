@@ -4,7 +4,7 @@
     "password": "POSTGRES_PASS",
     "database": "erp",
     "host": "192.168.1.62",
-    "dialect": "postgresql"
+    "dialect": "postgres"
   },
   "test": {
     "username": "root",
