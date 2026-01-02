@@ -8,9 +8,18 @@ const morgan = require('morgan');
 
 const app = express();
 
+const corsOptions = {
+  origin: 'http://localhost:5173', // Frontend URL
+  credentials: true, // Allow credentials (cookies)
+  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
+  optionsSuccessStatus: 200,
+};  
+
+
 // Middleware - Security and parsing
 app.use(helmet());
-app.use(cors());
+app.use(cors(corsOptions));
 app.use(cookieParser());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
