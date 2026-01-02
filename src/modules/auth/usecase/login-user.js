@@ -1,12 +1,16 @@
 'use strict';
 
+const { ConflictError } = require("../../../utils/errors");
+
 module.exports = function ({
-   userDb,
-   Joi,
-   bcrypt,
-   UnknownError,
-   tokenService
-  }) {
+  userDb,
+  Joi,
+  bcrypt,
+  tokenService,
+  ValidationError,
+  ConflictError,
+  AuthenticationError
+}) {
   return async function loginUser({ credentials, logger }) {
     // Validation schema for login
     const schema = Joi.object({
@@ -16,8 +20,9 @@ module.exports = function ({
 
     const { error, value } = schema.validate(credentials);
     if (error) {
-      throw new UnknownError(error.details[0].message);
+      throw new ValidationError(error.details[0].message);
     }
+
 
     // Find user by username or email
     const user = await userDb.findByUsernameOrEmail({
@@ -26,19 +31,21 @@ module.exports = function ({
     });
 
     if (!user) {
-      throw new UnknownError("Invalid credentials");
+      throw new AuthenticationError("Invalid credentials");
     }
+
 
     // Check if user is deleted
     if (user.is_deleted) {
-      throw new UnknownError("Account is deactivated");
+      throw new ConflictError("Account is deactivated");
     }
 
     // Verify password
     const isPasswordValid = await bcrypt.compare(value.password, user.password);
-    
+
     if (!isPasswordValid) {
-      throw new UnknownError("Invalid credentials");
+      throw new AuthenticationError("Invalid credentials");
+
     }
 
     // Update last login timestamp
@@ -51,11 +58,10 @@ module.exports = function ({
     const tokenPayload = {
       user_id: user.user_id,
       username: user.username,
-      email: user.email,
-      user_role: user.user_role,
       is_admin: user.is_admin,
     };
-    
+
+
     const token = tokenService.generateToken(tokenPayload);
 
     // Remove sensitive data

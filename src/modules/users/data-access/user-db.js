@@ -1,6 +1,6 @@
 'use strict';
 
-module.exports = function ({ sequelize, UnknownError }) {
+module.exports = function ({ sequelize }) {
   return {
     findExistingUser,
     createUser,
@@ -28,7 +28,8 @@ module.exports = function ({ sequelize, UnknownError }) {
     );
 
     if (!row) {
-      throw new UnknownError("Default employment type 'full_time' not found");
+      // CHANGED: throw plain Error
+      throw new Error("Default employment type 'full_time' not found");
     }
 
     return row.employment_type_id;
@@ -123,7 +124,8 @@ module.exports = function ({ sequelize, UnknownError }) {
       };
     } catch (err) {
       logger?.error(err);
-      throw new UnknownError("Failed to fetch users");
+      // CHANGED: rethrow original error
+      throw err;
     }
   }
 
@@ -151,16 +153,18 @@ module.exports = function ({ sequelize, UnknownError }) {
       return result[0] || null;
     } catch (err) {
       logger?.error(err);
-      throw new UnknownError("Login lookup failed");
+      throw err; // CHANGED
     }
   }
 
   async function findExistingUser({ email, username, mobile_number, logger }) {
     try {
       const sql = `
-        SELECT user_id
+        SELECT user_id, email, username, mobile_number
         FROM users
-        WHERE email = $1 OR username = $2 OR mobile_number = $3
+        WHERE email = $1
+          OR username = $2
+          OR mobile_number = $3
         LIMIT 1
       `;
 
@@ -172,7 +176,7 @@ module.exports = function ({ sequelize, UnknownError }) {
       return result[0] || null;
     } catch (err) {
       logger?.error(err);
-      throw new UnknownError("Database error while checking user existence");
+      throw err; // CHANGED
     }
   }
 
@@ -198,13 +202,14 @@ module.exports = function ({ sequelize, UnknownError }) {
         pc++;
       }
 
-      const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(' OR ')}` : '';
+      const whereClause = conditions.length
+        ? `WHERE (${conditions.join(' OR ')}) AND is_deleted = false`
+        : `WHERE is_deleted = false`;
 
       const sql = `
         SELECT user_id, email, username, employee_code
         FROM users
         ${whereClause}
-          AND is_deleted = false
         LIMIT 1
       `;
 
@@ -216,7 +221,7 @@ module.exports = function ({ sequelize, UnknownError }) {
       return result[0] || null;
     } catch (err) {
       logger?.error(err);
-      throw new UnknownError("Database error while checking user existence");
+      throw err; // CHANGED
     }
   }
 
@@ -228,17 +233,17 @@ module.exports = function ({ sequelize, UnknownError }) {
     try {
       const employmentTypeId =
         userData.employment_type_id || (await getDefaultEmploymentTypeId());
-  
+
       const fields = [];
       const values = [];
-  
+
       const add = (k, v) => {
         if (v !== undefined && v !== null && v !== '') {
           fields.push(k);
           values.push(v);
         }
       };
-  
+
       add('username', userData.username);
       add('password', userData.password);
       add('email', userData.email);
@@ -270,50 +275,27 @@ module.exports = function ({ sequelize, UnknownError }) {
       add('employment_type_id', employmentTypeId);
       add('created_by', userData.created_by);
       add('updated_by', userData.updated_by);
-  
+
       const sql = `
         INSERT INTO users (${fields.join(', ')})
         VALUES (${fields.map((_, i) => `$${i + 1}`).join(', ')})
-        RETURNING user_id, username, email, employee_code, full_name, first_name, last_name,
-                  mobile_number, department_id, designation_id, employment_status, date_of_joining
+        RETURNING user_id, username, email, employee_code, full_name,
+                  first_name, last_name, mobile_number, department_id,
+                  designation_id, employment_status, date_of_joining
       `;
-  
+
       const result = await sequelize.query(sql, {
         bind: values,
         type: sequelize.QueryTypes.INSERT,
       });
-  
+
       return result[0][0];
     } catch (err) {
       logger?.error(err);
-  
-      /**
-       * Handle PostgreSQL unique constraint violations (23505)
-       * This MUST be handled here, not in controller
-       */
-      if (err.name === 'SequelizeUniqueConstraintError' || err.parent?.code === '23505') {
-        const detail = err.parent?.detail || '';
-  
-        if (detail.includes('(username)')) {
-          throw new UnknownError('Username already exists');
-        }
-        if (detail.includes('(email)')) {
-          throw new UnknownError('Email already exists');
-        }
-        if (detail.includes('(mobile_number)')) {
-          throw new UnknownError('Mobile number already exists');
-        }
-        if (detail.includes('(employee_code)')) {
-          throw new UnknownError('Employee code already exists');
-        }
-  
-        throw new UnknownError('Duplicate value violates unique constraint');
-      }
-  
-      throw new UnknownError('User creation failed');
+      // CHANGED: do NOT wrap, just rethrow
+      throw err;
     }
   }
-  
 
   /* ---------------------------------------------------- */
   /* Find / Update                                        */
@@ -337,7 +319,7 @@ module.exports = function ({ sequelize, UnknownError }) {
       return result[0] || null;
     } catch (err) {
       logger?.error(err);
-      throw new UnknownError("Failed to fetch user");
+      throw err; // CHANGED
     }
   }
 
@@ -348,14 +330,16 @@ module.exports = function ({ sequelize, UnknownError }) {
       let pc = 1;
 
       const add = (k, v) => {
-        if (v !== undefined && v !== null && v !== '') {
-          fields.push(`${k} = $${pc++}`);
+        if (v !== undefined) {
+          fields.push(`${k} = $${pc}`);
           values.push(v);
+          pc++;
         }
       };
 
       add('username', userData.username);
       add('email', userData.email);
+      add('employee_code', userData.employee_code);
       add('first_name', userData.first_name);
       add('middle_name', userData.middle_name);
       add('last_name', userData.last_name);
@@ -373,7 +357,6 @@ module.exports = function ({ sequelize, UnknownError }) {
       add('state', userData.state);
       add('country', userData.country);
       add('pin_code', userData.pin_code);
-      add('employee_code', userData.employee_code);
       add('department_id', userData.department_id);
       add('designation_id', userData.designation_id);
       add('employment_type_id', userData.employment_type_id);
@@ -383,42 +366,39 @@ module.exports = function ({ sequelize, UnknownError }) {
       add('profile_photo_url', userData.profile_photo_url);
       add('is_admin', userData.is_admin);
 
-      if (userData.password) {
-        const bcrypt = require('bcrypt');
-        add('password', await bcrypt.hash(userData.password, 10));
-      }
-
       add('updated_by', updatedBy);
-      add('updatedAt', new Date());
+
 
       if (!fields.length) {
-        throw new UnknownError("No fields to update");
+        throw new Error('No fields to update');
       }
 
-      values.push(user_id);
-
       const sql = `
-        UPDATE users
-        SET ${fields.join(', ')}
-        WHERE user_id = $${pc} AND is_deleted = false
-        RETURNING user_id, username, email, employee_code, full_name
-      `;
+      UPDATE users
+      SET ${fields.join(', ')}
+      WHERE user_id = $${pc}
+        AND is_deleted = false
+      RETURNING
+        user_id, username, email, employee_code,
+        first_name, last_name, mobile_number,
+        department_id, designation_id,
+        employment_status, "updatedAt"
+    `;
+
+      values.push(user_id);
 
       const result = await sequelize.query(sql, {
         bind: values,
         type: sequelize.QueryTypes.UPDATE,
       });
 
-      if (!result[0]?.length) {
-        throw new UnknownError("User not found or deleted");
-      }
-
-      return result[0][0];
+      return result[0][0] || null;
     } catch (err) {
       logger?.error(err);
-      throw new UnknownError("User update failed");
+      throw err;
     }
   }
+
 
   async function updateLastLogin({ user_id, logger }) {
     try {
@@ -437,7 +417,7 @@ module.exports = function ({ sequelize, UnknownError }) {
       return result[0][0] || null;
     } catch (err) {
       logger?.error(err);
-      throw new UnknownError("Failed to update last login");
+      throw err; // CHANGED
     }
   }
 };

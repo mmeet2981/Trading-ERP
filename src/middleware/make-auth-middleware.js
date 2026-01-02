@@ -4,8 +4,8 @@ module.exports = function ({ tokenService }) {
   return async function authMiddleware(req, res, next) {
     try {
       // Get token from cookie (preferred) or Authorization header
-      let token = req.cookies.auth_token;
-      
+      let token = req.cookies && req.cookies.auth_token;
+
       if (!token && req.headers.authorization) {
         const authHeader = req.headers.authorization;
         if (authHeader.startsWith('Bearer ')) {
@@ -28,23 +28,27 @@ module.exports = function ({ tokenService }) {
 
       // Verify token
       const decoded = tokenService.verifyToken(token);
-      
-      // Attach user info to request
+
+      if (!decoded || !decoded.user_id) {
+        throw new Error('Invalid token payload');
+      }
+
       req.user = decoded;
       req.token = token;
-      
+
       next();
+
     } catch (error) {
       // Log error for debugging
       if (req.log) {
         req.log.error({ error: error.message, stack: error.stack }, "Token verification failed");
       }
-      
+
       // Clear invalid token cookie
       res.clearCookie('auth_token', {
         httpOnly: true,
         secure: process.env.NODE_ENV === 'production',
-        sameSite: 'strict',
+        sameSite: 'lax',
         path: '/',
       });
 

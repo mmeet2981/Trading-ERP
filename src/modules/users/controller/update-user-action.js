@@ -4,25 +4,28 @@ module.exports = function ({
   createErrorResponse,
   createSuccessResponse,
   updateUserUseCase,
+  uploadProfilePicture,
 }) {
   return async function updateUserAction(req, res) {
     const logger = req.log;
 
     try {
-      const user_id = req.params.user_id || req.body.user_id;
+      const { user_id } = req.params;
       const userData = req.body;
-      const updatedBy = req.user?.user_id || 1;
+      const updatedBy = req.user?.user_id || null;
 
-      if (!user_id) {
-        return createErrorResponse(
-          { message: "User ID is required" },
-          res,
-          400
-        );
+      if (req.file) {
+        const profileUrl = await uploadProfilePicture({
+          file: req.file,
+          firstName: userData.first_name,
+          lastName: userData.last_name,
+        });
+
+        userData.profile_photo_url = profileUrl;
       }
 
       const result = await updateUserUseCase({
-        user_id: parseInt(user_id),
+        user_id,
         userData,
         updatedBy,
         logger,
@@ -31,9 +34,8 @@ module.exports = function ({
       return createSuccessResponse(200, result, res);
     } catch (error) {
       logger.error(error);
-      logger.error("Error in updateUserAction");
+      logger.error('Error in updateUserAction');
       return createErrorResponse(error, res);
     }
   };
 };
-

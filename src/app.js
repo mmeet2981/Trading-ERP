@@ -65,8 +65,23 @@ app.use((req, res) => {
 
 // Error handler
 app.use((err, req, res, next) => {
-  req.log.error('Unhandled error', err);
-  res.status(500).json({ error: 'Internal server error' });
+  // Safe logging
+  if (req && req.log) {
+    req.log.error(err.message, err);
+  } else {
+    console.error(err);
+  }
+
+  const statusCode = err.statusCode || 500;
+
+  return res.status(statusCode).json({
+    success: false,
+    error: {
+      message: err.message || 'Internal Server Error',
+      type: err.name || 'UnknownError'
+    }
+  });
 });
+
 
 module.exports = app;

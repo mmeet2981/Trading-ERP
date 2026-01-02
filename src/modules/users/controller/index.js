@@ -1,7 +1,7 @@
 const makeCreateUserAction = require("./create-user-action");
 const makeUpdateUserAction = require("./update-user-action");
 const { createUser, updateUser } = require("../usecase");
-
+const uploadProfilePicture = require('../utils/upload-profile-picture')
 const {
   createErrorResponse,
   createSuccessResponse,
@@ -16,6 +16,7 @@ const createUserAction = makeCreateUserAction({
 const updateUserAction = makeUpdateUserAction({
   createErrorResponse,
   createSuccessResponse,
+  uploadProfilePicture,
   updateUserUseCase: updateUser,
 });
 
