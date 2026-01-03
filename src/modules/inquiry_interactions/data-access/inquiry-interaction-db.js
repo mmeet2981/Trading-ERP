@@ -9,7 +9,8 @@ module.exports = function ({
     deleteInquiryInteraction,
     validateInquiryExists,
     getUserById,
-    getInquiryInteractionsById,
+    getInquiryInteractionsByInquiryId,
+    getInquiryInteractionById,
     sequelize
   };
 
@@ -262,7 +263,7 @@ module.exports = function ({
     }
   }
 
-  async function getInquiryInteractionsById({
+  async function getInquiryInteractionsByInquiryId({
     inquiryId,
     filters = {},
     pagination = {},
@@ -294,7 +295,7 @@ module.exports = function ({
           ii.created_at,
           u.full_name AS created_by_name,
           u.employee_code AS created_by_employee_code,
-          u.user_role AS created_by_role,
+         -- u.user_role AS created_by_role,
           -- Get next interaction details
           LEAD(ii.interaction_type) OVER (ORDER BY ii.interaction_datetime) AS next_interaction_type,
           LEAD(ii.interaction_datetime) OVER (ORDER BY ii.interaction_datetime) AS next_interaction_datetime,
@@ -494,6 +495,65 @@ module.exports = function ({
         stack: err.stack
       }, 'Error fetching inquiry interactions by inquiry ID');
       throw new UnknownError('Failed to fetch inquiry interactions');
+    }
+  }
+
+  async function getInquiryInteractionById({
+    interactionId,
+    logger
+  }) {
+    const context = {
+      operation: 'getInquiryInteractionById',
+      interactionId
+    };
+
+    try {
+      logger.info(context, 'Fetching inquiry interaction by ID');
+
+      const query = `
+      SELECT 
+        ii.id,
+        ii.inquiry_id,
+        ii.interaction_type,
+        ii.interaction_datetime,
+        ii.outcome,
+        ii.summary,
+        ii.follow_up_required,
+        ii.follow_up_datetime,
+        ii.follow_up_status,
+        ii.created_by,
+        ii.created_at,
+        u.full_name AS created_by_name,
+        u.employee_code AS created_by_employee_code
+        -- u.user_role AS created_by_role
+      FROM inquiry_interactions ii
+      LEFT JOIN users u ON ii.created_by = u.user_id
+      WHERE ii.id = $1
+    `;
+
+      const values = [interactionId];
+
+      logger.debug({ ...context, query, values }, 'Executing inquiry interaction query');
+
+      const result = await sequelize.query(query, {
+        bind: values,
+        type: sequelize.QueryTypes.SELECT
+      });
+
+      if (result.length === 0) {
+        logger.warn(context, 'Inquiry interaction not found');
+        return null;
+      }
+
+      logger.info(context, 'Inquiry interaction fetched successfully');
+      return result[0];
+    } catch (err) {
+      logger.error({
+        ...context,
+        error: err.message,
+        stack: err.stack
+      }, 'Error fetching inquiry interaction by ID');
+      throw new UnknownError('Failed to fetch inquiry interaction');
     }
   }
 };

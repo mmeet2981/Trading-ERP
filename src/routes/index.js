@@ -7,7 +7,7 @@ const inquiryInteractionRoutes = require('./inquiry-interaction-routes');
 
 router.use('/v1/user-service',userRoutes)
 router.use('/v1/auth', authRoutes);
-router.use('/api/inquiries', inquiryRoutes);
-router.use('/api/inquiry-interactions', inquiryInteractionRoutes);
+router.use('/v1/inquiries', inquiryRoutes);
+router.use('/v1/inquiry-interactions', inquiryInteractionRoutes);
 
 module.exports = router;

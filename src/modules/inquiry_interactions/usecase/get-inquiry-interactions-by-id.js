@@ -91,7 +91,7 @@ module.exports = function ({
       logger.debug({ ...context, inquiryCode: inquiry.inquiry_code, inquiryStatus: inquiry.status }, 'Inquiry exists');
 
       // Call data access layer
-      const result = await inquiryInteractionDb.getInquiryInteractionsById({
+      const result = await inquiryInteractionDb.getInquiryInteractionsByInquiryId({
         inquiryId: validatedParams.inquiryId,
         filters: validatedFilters,
         pagination: paginationParams,
