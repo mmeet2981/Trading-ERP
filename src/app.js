@@ -8,9 +8,18 @@ const morgan = require('morgan');
 
 const app = express();
 
+const corsOptions = {
+  origin: 'http://localhost:5173', // Frontend URL
+  credentials: true, // Allow credentials (cookies)
+  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
+  optionsSuccessStatus: 200,
+};  
+
+
 // Middleware - Security and parsing
 app.use(helmet());
-app.use(cors());
+app.use(cors(corsOptions));
 app.use(cookieParser());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
@@ -53,15 +62,9 @@ app.get('/health', (req, res) => {
 });
 
 // Try to load routes, but don't crash if they don't exist
-try {
-  const routes = require('./routes');
-  app.use('/', routes);
-} catch (error) {
-  console.warn('Routes module not found, using basic routes');
-  app.get('/', (req, res) => {
-    res.json({ message: 'Welcome to the API' });
-  });
-}
+const routes = require('./routes');
+app.use('/', routes);
+
 
 // 404 handler
 app.use((req, res) => {
@@ -71,8 +74,23 @@ app.use((req, res) => {
 
 // Error handler
 app.use((err, req, res, next) => {
-  req.log.error('Unhandled error', err);
-  res.status(500).json({ error: 'Internal server error' });
+  // Safe logging
+  if (req && req.log) {
+    req.log.error(err.message, err);
+  } else {
+    console.error(err);
+  }
+
+  const statusCode = err.statusCode || 500;
+
+  return res.status(statusCode).json({
+    success: false,
+    error: {
+      message: err.message || 'Internal Server Error',
+      type: err.name || 'UnknownError'
+    }
+  });
 });
+
 
 module.exports = app;
