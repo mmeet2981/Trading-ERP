@@ -1,12 +1,14 @@
 'use strict';
-
 module.exports = function ({
-   userDb,
-   Joi,
-   bcrypt,
-   UnknownError,
-   tokenService
-  }) {
+  userDb,
+  Joi,
+  bcrypt,
+  tokenService,
+  ValidationError,
+  UnknownError,
+  ConflictError,
+  AuthenticationError
+}) {
   return async function loginUser({ credentials, logger }) {
     // Validation schema for login
     const schema = Joi.object({
@@ -16,8 +18,9 @@ module.exports = function ({
 
     const { error, value } = schema.validate(credentials);
     if (error) {
-      throw new UnknownError(error.details[0].message);
+      throw new ValidationError(error.details[0].message);
     }
+
 
     // Find user by username or email
     const user = await userDb.findByUsernameOrEmail({
@@ -29,16 +32,18 @@ module.exports = function ({
       throw new UnknownError("Invalid credentials");
     }
 
+
     // Check if user is deleted
     if (user.is_deleted) {
-      throw new UnknownError("Account is deactivated");
+      throw new ConflictError("Account is deactivated");
     }
 
     // Verify password
     const isPasswordValid = await bcrypt.compare(value.password, user.password);
-    
+
     if (!isPasswordValid) {
       throw new UnknownError("Invalid credentials");
+
     }
 
     // Update last login timestamp
@@ -51,11 +56,10 @@ module.exports = function ({
     const tokenPayload = {
       user_id: user.user_id,
       username: user.username,
-      email: user.email,
-      user_role: user.user_role,
       is_admin: user.is_admin,
     };
-    
+
+
     const token = tokenService.generateToken(tokenPayload);
 
     // Remove sensitive data
@@ -64,7 +68,6 @@ module.exports = function ({
     return {
       success: true,
       message: "Login successful",
-      token: token,
       user: {
         user_id: user.user_id,
         username: user.username,
@@ -76,6 +79,7 @@ module.exports = function ({
         is_admin: user.is_admin,
         profile_photo_url: user.profile_photo_url,
       },
+      token: token,
     };
   };
 };

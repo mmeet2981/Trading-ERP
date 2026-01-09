@@ -2,13 +2,21 @@
 
 const jwt = require('jsonwebtoken');
 
+
 module.exports = function makeTokenService({ JWT_SECRET, JWT_EXPIRES_IN, NODE_ENV }) {
+  
+  if (!JWT_SECRET) {
+    throw new Error('JWT_SECRET is not defined');
+  }
+
   return {
     generateToken,
     verifyToken,
     setTokenCookie,
     clearTokenCookie,
   };
+
+
 
   function generateToken(payload) {
     const expiresIn = JWT_EXPIRES_IN || '24h';
@@ -31,7 +39,7 @@ module.exports = function makeTokenService({ JWT_SECRET, JWT_EXPIRES_IN, NODE_EN
     res.cookie('auth_token', token, {
       httpOnly: true, // Prevents client-side JavaScript access
       secure: isProduction, // Only send over HTTPS in production
-      sameSite: 'strict', // Prevents CSRF attacks
+      sameSite: 'lax', // Prevents CSRF attacks
       maxAge: 24 * 60 * 60 * 1000, // 24 hours in milliseconds
       path: '/', // Available on all routes
     });
@@ -41,7 +49,7 @@ module.exports = function makeTokenService({ JWT_SECRET, JWT_EXPIRES_IN, NODE_EN
     res.clearCookie('auth_token', {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
-      sameSite: 'strict',
+      sameSite: 'lax',
       path: '/',
     });
   }
