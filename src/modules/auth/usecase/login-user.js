@@ -1,13 +1,11 @@
 'use strict';
-
-const { ConflictError } = require("../../../utils/errors");
-
 module.exports = function ({
   userDb,
   Joi,
   bcrypt,
   tokenService,
   ValidationError,
+  UnknownError,
   ConflictError,
   AuthenticationError
 }) {
@@ -31,7 +29,7 @@ module.exports = function ({
     });
 
     if (!user) {
-      throw new AuthenticationError("Invalid credentials");
+      throw new UnknownError("Invalid credentials");
     }
 
 
@@ -44,7 +42,7 @@ module.exports = function ({
     const isPasswordValid = await bcrypt.compare(value.password, user.password);
 
     if (!isPasswordValid) {
-      throw new AuthenticationError("Invalid credentials");
+      throw new UnknownError("Invalid credentials");
 
     }
 
@@ -70,7 +68,6 @@ module.exports = function ({
     return {
       success: true,
       message: "Login successful",
-      token: token,
       user: {
         user_id: user.user_id,
         username: user.username,
@@ -82,6 +79,7 @@ module.exports = function ({
         is_admin: user.is_admin,
         profile_photo_url: user.profile_photo_url,
       },
+      token: token,
     };
   };
 };

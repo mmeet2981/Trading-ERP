@@ -27,6 +27,7 @@ const loginUser = makeLoginUser({
   ValidationError,
   AuthenticationError,
   ConflictError,
+  UnknownError,
   tokenService,
 });
 

@@ -304,24 +304,66 @@ module.exports = function ({ sequelize }) {
   async function findUserById({ user_id, logger }) {
     try {
       const sql = `
-        SELECT u.*, et.name AS employment_type
-        FROM users u
-        LEFT JOIN employment_types et
-          ON et.employment_type_id = u.employment_type_id
-        WHERE u.user_id = $1 AND u.is_deleted = false
-      `;
+      SELECT
+        u.user_id,
+        u.username,
+        u.email,
+        u.employee_code,
+        u.first_name,
+        u.middle_name,
+        u.last_name,
+        u.full_name,
+        u.gender,
+        u.date_of_birth,
+        u.blood_group,
+        u.marital_status,
+        u.mobile_number,
+        u.alternate_mobile,
+        u.address_line1,
+        u.address_line2,
+        u.city,
+        u.taluka,
+        u.district,
+        u.state,
+        u.country,
+        u.pin_code,
+        u.department_id,
+        d.department_name,
+        u.designation_id,
+        desg.designation_name,
+        u.date_of_joining,
+        u.employment_status,
+        u.employment_type_id,
+        et.name AS employment_type,
+        u.reporting_manager_id,
+        rm.full_name AS reporting_manager_name,
+        u.profile_photo_url,
+        u.is_admin,
+        u.last_login_at,
+        u."createdAt",
+        u."updatedAt"
+      FROM users u
+      LEFT JOIN departments d ON d.department_id = u.department_id
+      LEFT JOIN designations desg ON desg.designation_id = u.designation_id
+      LEFT JOIN employment_types et ON et.employment_type_id = u.employment_type_id
+      LEFT JOIN users rm ON rm.user_id = u.reporting_manager_id
+      WHERE u.user_id = $1
+        AND u.is_deleted = false
+      LIMIT 1
+    `;
 
-      const result = await sequelize.query(sql, {
+      const [user] = await sequelize.query(sql, {
         bind: [user_id],
         type: sequelize.QueryTypes.SELECT,
       });
 
-      return result[0] || null;
+      return user || null;
     } catch (err) {
       logger?.error(err);
-      throw err; // CHANGED
+      throw err;
     }
   }
+
 
   async function updateUser({ user_id, userData, updatedBy, logger }) {
     try {
