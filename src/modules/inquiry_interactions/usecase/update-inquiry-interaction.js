@@ -1,3 +1,4 @@
+// In update-inquiry-interaction.js
 module.exports = function ({
   inquiryInteractionDb,
   UnknownError,
@@ -28,20 +29,17 @@ module.exports = function ({
       follow_up_datetime: Joi.date().iso().allow(null).label('Follow Up DateTime'),
       follow_up_status: Joi.string().max(20).allow(null, '').label('Follow Up Status'),
       created_by: Joi.number().integer().allow(null).label('Created By')
-    }).min(1).label('Update Data'); // At least one field must be provided
+    }).min(1).label('Update Data');
 
-    // Declare validatedUpdateData in outer scope so it's accessible in transaction block
     let validatedUpdateData;
 
     // Validate update data
     try {
       logger.debug({ ...context, updateData }, 'Validating update data');
-
       validatedUpdateData = await updateSchema.validateAsync(updateData, {
         abortEarly: false,
-        stripUnknown: true // Remove unknown fields
+        stripUnknown: true
       });
-
       logger.debug({ ...context, validatedUpdateData }, 'Update data validation passed');
     } catch (validationError) {
       const validationErrors = validationError.details?.map(detail => ({
@@ -53,26 +51,33 @@ module.exports = function ({
       throw new ValidationError(validationError.message);
     }
 
-    // Get sequelize instance from inquiryInteractionDb
     const { sequelize } = inquiryInteractionDb;
-
-    // Start transaction
     logger.debug(context, 'Starting database transaction');
     const transaction = await sequelize.transaction();
 
     try {
-      // Validate interaction exists
+      
       const existingInteraction = await inquiryInteractionDb.getInquiryInteractionById({
         interactionId,
-        logger
+        logger,
+        transaction // Pass transaction if the function supports it
       });
 
-      logger.debug({ ...context, existingInteractionId: existingInteraction.id }, 'Interaction exists');
+      if (!existingInteraction) {
+        throw new NotFoundError('Inquiry interaction not found');
+      }
+
+      logger.debug({ 
+        ...context, 
+        existingInteractionId: existingInteraction.id,
+        inquiryId: existingInteraction.inquiry_id 
+      }, 'Interaction exists');
 
       // Validate created_by user exists if provided
       if (validatedUpdateData.created_by) {
         logger.debug({ ...context, userId: validatedUpdateData.created_by }, 'Validating user');
-
+        
+        // FIXED: Make sure this function exists and accepts transaction
         const user = await inquiryInteractionDb.getUserById({
           userId: validatedUpdateData.created_by,
           logger,
@@ -94,7 +99,6 @@ module.exports = function ({
         logger
       });
 
-      // Commit transaction
       await transaction.commit();
 
       logger.info({
@@ -106,7 +110,6 @@ module.exports = function ({
 
       return updatedInteraction;
     } catch (error) {
-      // Rollback transaction on error
       await transaction.rollback();
       logger.error({
         ...context,
