@@ -3,7 +3,7 @@ const makeRegisterUser = require("./register-user");
 const makeLoginUser = require("./login-user");
 const makeLogoutUser = require("./logout-user");
 const { userDb } = require("../../users/data-access");
-const { UnknownError } = require("../../../utils/errors");
+const { UnknownError,ValidationError,ConflictError,AuthenticationError } = require("../../../utils/errors");
 const Joi = require("joi");
 const bcrypt = require("bcrypt");
 const jwtConfig = require("../../../config/jwt-config");
@@ -16,12 +16,17 @@ const registerUser = makeRegisterUser({
   Joi,
   bcrypt,
   UnknownError,
+  ValidationError,
+  ConflictError
 });
 
 const loginUser = makeLoginUser({
   userDb,
   Joi,
   bcrypt,
+  ValidationError,
+  AuthenticationError,
+  ConflictError,
   UnknownError,
   tokenService,
 });

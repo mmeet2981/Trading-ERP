@@ -29,8 +29,7 @@ module.exports = function ({
       if (process.env.NODE_ENV === 'production') {
         delete result.token;
       }
-      
-      delete result.token;
+
 
       return createSuccessResponse(200, result, res);
     } catch (error) {
