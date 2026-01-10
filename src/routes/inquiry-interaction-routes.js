@@ -1,17 +1,17 @@
 const express = require('express');
 const router = express.Router();
-const { 
+const {
   createInquiryInteractionAction,
   updateInquiryInteractionAction,
   deleteInquiryInteractionAction,
-  getInquiryInteractionsByIdAction,
+  getInquiryInteractionsByInquiryIdAction,
 } = require('../modules/inquiry_interactions/controller');
 
 // Create inquiry interaction route
 router.post('/', createInquiryInteractionAction);
 
-// Get inquiry interaction details route
-router.get('/:id', getInquiryInteractionsByIdAction);
+// Get inquiry interactions by inquiry ID (with pagination and filters)
+router.get('/:inquiryId', getInquiryInteractionsByInquiryIdAction);
 
 // Update inquiry interaction route
 router.put('/:id', updateInquiryInteractionAction);

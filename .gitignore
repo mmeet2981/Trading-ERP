@@ -140,3 +140,7 @@ vite.config.ts.timestamp-*
 
 # just to keep list of task 
 Task.txt
+
+src/modules/purchase_details
+src/routes/purchase-routes.js
+test-payloads

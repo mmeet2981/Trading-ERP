@@ -1,42 +1,11 @@
-const { createSuccessResponse, createErrorResponse } = require('../../../utils/response');
-const { createInquiry, getInquiryList, getInquiryDetails, updateInquiry, softDeleteInquiry } = require('../usecase'); // Add updateInquiry
-
-const makeCreateInquiryAction = require('./create-inquiry-action');
-const makeGetInquiryListAction = require('./get-inquiry-list-action');
-const makeGetInquiryDetailsAction = require('./get-inquiry-details-action');
-const makeUpdateInquiryAction = require('./update-inquiry-action'); 
-const makeSoftDeleteInquiryAction = require('./soft-delete-inquiry-action'); 
-
-
-const createInquiryAction = makeCreateInquiryAction({
-  createErrorResponse,
-  createSuccessResponse,
-  createInquiry
-});
-
-const getInquiryListAction = makeGetInquiryListAction({
-  createErrorResponse,
-  createSuccessResponse,
-  getInquiryList
-});
-
-const getInquiryDetailsAction = makeGetInquiryDetailsAction({
-  createErrorResponse,
-  createSuccessResponse,
-  getInquiryDetails
-});
-
-const updateInquiryAction = makeUpdateInquiryAction({ 
-  createErrorResponse,
-  createSuccessResponse,
-  updateInquiry
-});
-
-const softDeleteInquiryAction = makeSoftDeleteInquiryAction({
-  createErrorResponse,
-  createSuccessResponse,
-  softDeleteInquiry
-});
+// Import actions from inquiries sub-folder
+const {
+  createInquiryAction,
+  getInquiryListAction,
+  getInquiryDetailsAction,
+  updateInquiryAction,
+  softDeleteInquiryAction,
+} = require("./inquiries");
 
 module.exports = {
   createInquiryAction,

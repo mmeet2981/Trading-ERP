@@ -627,10 +627,10 @@ module.exports = function ({
           u.first_name AS assigned_user_first_name,
           u.last_name AS assigned_user_last_name,
           u.mobile_number AS assigned_user_mobile,
-          u.department_id AS assigned_user_department_id,
-          u.designation_id AS assigned_user_designation_id,
-          d.department_name AS assigned_user_department_name,
-          des.designation_name AS assigned_user_designation_name,
+          -- u.department_id AS assigned_user_department_id,
+          -- u.designation_id AS assigned_user_designation_id,
+          -- d.department_name AS assigned_user_department_name,
+          -- des.designation_name AS assigned_user_designation_name,
           -- Get interaction count
           (SELECT COUNT(*) FROM inquiry_interactions ii WHERE ii.inquiry_id = i.id) AS interaction_count,
           -- Get latest interaction
@@ -639,8 +639,8 @@ module.exports = function ({
         FROM inquiries i
         LEFT JOIN crm_contacts c ON i.customer_id = c.id
         LEFT JOIN users u ON i.assigned_sales_person = u.user_id
-        LEFT JOIN departments d ON u.department_id = d.department_id
-        LEFT JOIN designations des ON u.designation_id = des.designation_id
+        -- LEFT JOIN departments d ON u.department_id = d.department_id
+        -- LEFT JOIN designations des ON u.designation_id = des.designation_id
         WHERE i.id = $1 AND i.is_deleted = false
       `;
 

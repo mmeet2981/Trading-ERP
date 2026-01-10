@@ -1,4 +1,4 @@
-const { ValidationError } = require('../../../utils/errors');
+const { ValidationError } = require('../../../../utils/errors');
 
 module.exports = function ({
   createErrorResponse,

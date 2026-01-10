@@ -1,4 +1,4 @@
-module.exports = {
-  users: require("./users"),
-  inquiries: require('./inquiries')
-};
+// module.exports = {
+//   users: require("./users"),
+//   inquiries: require('./inquiries')
+// };

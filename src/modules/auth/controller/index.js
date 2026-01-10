@@ -1,30 +1,9 @@
-const makeRegisterUserAction = require("./register-user-action");
-const makeLoginUserAction = require("./login-user-action");
-const makeLogoutUserAction = require("./logout-user-action");
-const { registerUser,  loginUser, logoutUser } = require("../usecase");
-
+// Import actions from auth sub-folder
 const {
-  createErrorResponse,
-  createSuccessResponse,
-} = require("../../../utils/response")
-
-const registerUserAction = makeRegisterUserAction({
-  createErrorResponse,
-  createSuccessResponse,
-  registerUserUseCase: registerUser,
-});
-
-const loginUserAction = makeLoginUserAction({
-  createErrorResponse,
-  createSuccessResponse,
-  loginUserUseCase: loginUser,
-});
-
-const logoutUserAction = makeLogoutUserAction({
-  createErrorResponse,
-  createSuccessResponse,
-  logoutUserUseCase: logoutUser,
-});
+  registerUserAction,
+  loginUserAction,
+  logoutUserAction,
+} = require("./auth");
 
 
 module.exports = {
