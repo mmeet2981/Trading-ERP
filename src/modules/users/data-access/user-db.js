@@ -259,17 +259,17 @@ module.exports = function ({ sequelize }) {
       add('alternate_mobile', userData.alternate_mobile);
       add('address_line1', userData.address_line1);
       add('address_line2', userData.address_line2);
-      add('city', userData.city);
-      add('taluka', userData.taluka);
-      add('district', userData.district);
-      add('state', userData.state);
-      add('country', userData.country || 'India');
-      add('pin_code', userData.pin_code);
-      add('department_id', userData.department_id);
-      add('designation_id', userData.designation_id);
+      // add('city', userData.city);
+      // add('taluka', userData.taluka);
+      // add('district', userData.district);
+      // add('state', userData.state);
+      // add('country', userData.country || 'India');
+      // add('pin_code', userData.pin_code);
+      // add('department_id', userData.department_id);
+      // add('designation_id', userData.designation_id);
       add('date_of_joining', userData.date_of_joining);
       add('employment_status', userData.employment_status || 'active');
-      add('reporting_manager_id', userData.reporting_manager_id);
+      // add('reporting_manager_id', userData.reporting_manager_id);
       add('profile_photo_url', userData.profile_photo_url);
       add('is_admin', userData.is_admin || false);
       add('employment_type_id', employmentTypeId);
@@ -280,8 +280,8 @@ module.exports = function ({ sequelize }) {
         INSERT INTO users (${fields.join(', ')})
         VALUES (${fields.map((_, i) => `$${i + 1}`).join(', ')})
         RETURNING user_id, username, email, employee_code, full_name,
-                  first_name, last_name, mobile_number, department_id,
-                  designation_id, employment_status, date_of_joining
+                  first_name, last_name, mobile_number,
+                  employment_status, date_of_joining
       `;
 
       const result = await sequelize.query(sql, {
