@@ -34,7 +34,7 @@ module.exports = function ({
         taluka: Joi.string().max(50).allow(null).optional(),
         district: Joi.string().max(50).allow(null).optional(),
         state: Joi.string().max(50).allow(null).optional(),
-        country: Joi.string().max(50).default("India").optional(),
+        // country: Joi.string().max(50).default("India").optional(),
         pin_code: Joi.string().max(10).allow(null).optional(),
         department_id: Joi.number().integer().allow(null).optional(),
         designation_id: Joi.number().integer().allow(null).optional(),

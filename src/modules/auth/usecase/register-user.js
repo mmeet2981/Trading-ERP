@@ -110,7 +110,7 @@ module.exports = function ({
         employee_code: null,
         date_of_joining: new Date(),
         employment_status: 'active',
-        country: 'India',
+        // country: 'India',
 
         is_admin: false,
         is_deleted: false,
